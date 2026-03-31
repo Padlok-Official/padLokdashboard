@@ -3,6 +3,7 @@ import type { FC } from 'react';
 import { useNavigate } from 'react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import Spinner from '@/components/shared/Spinner';
 import { Mail, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { loginSchema } from '@/schemas/auth-schema';
@@ -116,7 +117,7 @@ const LoginPage: FC = () => {
                 className="flex h-14 w-20 items-center justify-center rounded-xl bg-brand-deep-navy text-white transition hover:bg-brand-navy disabled:opacity-60"
               >
                 {isSubmitting ? (
-                  <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  <Spinner size="md" />
                 ) : (
                   <ArrowRight size={24} />
                 )}

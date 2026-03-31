@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import type { FC } from 'react';
-import { NavLink, useNavigate } from 'react-router';
+import { NavLink } from 'react-router';
 import {
   Monitor,
   TrendingUp,
@@ -14,7 +15,7 @@ import {
   LogOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAuthStore } from '@/stores/auth-store';
+import LogoutModal from '@/components/shared/LogoutModal';
 
 interface NavItem {
   label: string;
@@ -39,15 +40,11 @@ const bottomNavItems: NavItem[] = [
 ];
 
 const Sidebar: FC = () => {
-  const navigate = useNavigate();
-  const logout = useAuthStore((s) => s.logout);
-
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
+  const [showLogout, setShowLogout] = useState(false);
 
   return (
+    <>
+    <LogoutModal open={showLogout} onClose={() => setShowLogout(false)} />
     <aside className="flex h-screen w-60 flex-col border-r border-gray-100 bg-white">
       {/* Logo */}
       <div className="flex items-center gap-2 px-5 py-6">
@@ -109,7 +106,7 @@ const Sidebar: FC = () => {
 
         {/* Logout */}
         <button
-          onClick={handleLogout}
+          onClick={() => setShowLogout(true)}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
         >
           <LogOut size={18} className="text-gray-500" />
@@ -117,6 +114,7 @@ const Sidebar: FC = () => {
         </button>
       </div>
     </aside>
+    </>
   );
 };
 
