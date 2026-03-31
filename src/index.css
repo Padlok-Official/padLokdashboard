@@ -1,0 +1,23 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Montserrat', system-ui, sans-serif;
+
+  --color-brand-deep-navy: #01001c;
+  --color-brand-navy: #0A0050;
+  --color-brand-accent: #6C7BFF;
+  --color-brand-accent-glow: rgba(108, 123, 255, 0.15);
+  --color-brand-green: #033604;
+  --color-brand-blue: #020036;
+
+  --color-sidebar: #01001c;
+  --color-sidebar-foreground: #ffffff;
+  --color-sidebar-accent: #6C7BFF;
+  --color-sidebar-muted: rgba(108, 123, 255, 0.15);
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
