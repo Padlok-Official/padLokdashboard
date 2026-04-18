@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router';
 import { LogOut, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/stores/auth-store';
+import authService from '@/services/auth-service';
 import Spinner from './Spinner';
 
 interface LogoutModalProps {
@@ -20,8 +21,15 @@ const LogoutModal: FC<LogoutModalProps> = ({ open, onClose }) => {
 
   const handleLogout = async () => {
     setLoading(true);
-    // Simulate a short delay for UX feel
-    await new Promise((r) => setTimeout(r, 600));
+
+    // Best-effort server-side revoke — don't block logout on API failure.
+    const refreshToken = useAuthStore.getState().refreshToken ?? undefined;
+    try {
+      await authService.logout(refreshToken);
+    } catch {
+      // Ignore — we'll still clear local state below
+    }
+
     logout();
     toast.success('You have been logged out successfully');
     navigate('/login');
