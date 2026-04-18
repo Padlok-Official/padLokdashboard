@@ -77,8 +77,11 @@ const permissionCategories: PermissionCategory[] = [
 ];
 
 export interface RoleData {
+  /** UUID when editing an existing role; omitted when creating. */
+  id?: string;
   name: string;
   description: string;
+  /** Permission KEYS (e.g. "view_revenue") not UUIDs. */
   permissions: string[];
 }
 
@@ -87,9 +90,17 @@ interface CreateRoleModalProps {
   onClose: () => void;
   onSubmit: (role: RoleData) => void;
   editRole?: RoleData | null;
+  /** Controlled from the page — shows a spinner + blocks close while true. */
+  isSubmitting?: boolean;
 }
 
-const CreateRoleModal: FC<CreateRoleModalProps> = ({ isOpen, onClose, onSubmit, editRole }) => {
+const CreateRoleModal: FC<CreateRoleModalProps> = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  editRole,
+  isSubmitting = false,
+}) => {
   const [name, setName] = useState(editRole?.name ?? '');
   const [description, setDescription] = useState(editRole?.description ?? '');
   const [selectedPerms, setSelectedPerms] = useState<Set<string>>(
@@ -98,7 +109,6 @@ const CreateRoleModal: FC<CreateRoleModalProps> = ({ isOpen, onClose, onSubmit, 
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set(permissionCategories.map((c) => c.name)),
   );
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   // Sync state when editRole changes (opening modal for a different role)
@@ -136,7 +146,7 @@ const CreateRoleModal: FC<CreateRoleModalProps> = ({ isOpen, onClose, onSubmit, 
     setSelectedPerms(next);
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     setError('');
     if (!name.trim()) {
       setError('Please enter a role name');
@@ -151,13 +161,13 @@ const CreateRoleModal: FC<CreateRoleModalProps> = ({ isOpen, onClose, onSubmit, 
       return;
     }
 
-    setSaving(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    onSubmit({ name: name.trim(), description: description.trim(), permissions: Array.from(selectedPerms) });
-    setSaving(false);
-    setName('');
-    setDescription('');
-    setSelectedPerms(new Set());
+    // Delegate to the parent — the mutation hook owns async state.
+    onSubmit({
+      id: editRole?.id,
+      name: name.trim(),
+      description: description.trim(),
+      permissions: Array.from(selectedPerms),
+    });
   };
 
   return (
@@ -292,10 +302,10 @@ const CreateRoleModal: FC<CreateRoleModalProps> = ({ isOpen, onClose, onSubmit, 
           </button>
           <button
             onClick={handleSubmit}
-            disabled={saving}
+            disabled={isSubmitting}
             className="flex items-center gap-2 rounded-lg bg-brand-green px-5 py-2.5 text-sm font-medium text-white disabled:opacity-60"
           >
-            {saving ? (
+            {isSubmitting ? (
               <>
                 <Spinner size="sm" /> Saving...
               </>

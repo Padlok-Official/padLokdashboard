@@ -7,22 +7,32 @@ import type { RoleData } from './CreateRoleModal';
 interface AddAdminModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (email: string, role: string) => void;
+  /** Fires with (email, roleId). Parent owns the mutation + async state. */
+  onSubmit: (email: string, roleId: string) => void;
+  /** Roles must carry an `id` (UUID) for the backend invitation call. */
   roles: RoleData[];
+  /** Controlled from the page — shows a spinner + blocks close while true. */
+  isSubmitting?: boolean;
 }
 
-const AddAdminModal: FC<AddAdminModalProps> = ({ isOpen, onClose, onSubmit, roles }) => {
+const AddAdminModal: FC<AddAdminModalProps> = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  roles,
+  isSubmitting = false,
+}) => {
   const [email, setEmail] = useState('');
-  const [selectedRole, setSelectedRole] = useState('');
+  // selectedRoleId holds the UUID; `selectedRoleName` is derived for display
+  const [selectedRoleId, setSelectedRoleId] = useState('');
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
-  const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
 
   if (!isOpen) return null;
 
-  const selectedRoleData = roles.find((r) => r.name === selectedRole);
+  const selectedRoleData = roles.find((r) => r.id === selectedRoleId);
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     setError('');
 
     if (!email.trim()) {
@@ -33,17 +43,12 @@ const AddAdminModal: FC<AddAdminModalProps> = ({ isOpen, onClose, onSubmit, role
       setError('Please enter a valid email address');
       return;
     }
-    if (!selectedRole) {
+    if (!selectedRoleId) {
       setError('Please select a role for the new admin');
       return;
     }
 
-    setSending(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    onSubmit(email, selectedRole);
-    setSending(false);
-    setEmail('');
-    setSelectedRole('');
+    onSubmit(email.trim(), selectedRoleId);
   };
 
   return (
@@ -87,10 +92,10 @@ const AddAdminModal: FC<AddAdminModalProps> = ({ isOpen, onClose, onSubmit, role
               onClick={() => setShowRoleDropdown(!showRoleDropdown)}
               className={cn(
                 'flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left text-sm',
-                selectedRole ? 'border-brand-green text-gray-900' : 'border-gray-200 text-gray-400',
+                selectedRoleData ? 'border-brand-green text-gray-900' : 'border-gray-200 text-gray-400',
               )}
             >
-              {selectedRole || 'Select a role...'}
+              {selectedRoleData?.name || 'Select a role...'}
               <ChevronDown size={16} className="text-gray-400" />
             </button>
 
@@ -101,14 +106,17 @@ const AddAdminModal: FC<AddAdminModalProps> = ({ isOpen, onClose, onSubmit, role
                 ) : (
                   roles.map((role) => (
                     <button
-                      key={role.name}
+                      key={role.id ?? role.name}
                       onClick={() => {
-                        setSelectedRole(role.name);
-                        setShowRoleDropdown(false);
+                        if (role.id) {
+                          setSelectedRoleId(role.id);
+                          setShowRoleDropdown(false);
+                        }
                       }}
+                      disabled={!role.id}
                       className={cn(
-                        'flex w-full items-start gap-2 px-3 py-2.5 text-left text-sm hover:bg-gray-50',
-                        selectedRole === role.name && 'bg-brand-green/5',
+                        'flex w-full items-start gap-2 px-3 py-2.5 text-left text-sm hover:bg-gray-50 disabled:opacity-50',
+                        selectedRoleId === role.id && 'bg-brand-green/5',
                       )}
                     >
                       <div>
@@ -160,10 +168,10 @@ const AddAdminModal: FC<AddAdminModalProps> = ({ isOpen, onClose, onSubmit, role
           </button>
           <button
             onClick={handleSubmit}
-            disabled={sending}
+            disabled={isSubmitting}
             className="flex items-center gap-2 rounded-lg bg-[#020036] px-5 py-2.5 text-sm font-medium text-white disabled:opacity-60"
           >
-            {sending ? (
+            {isSubmitting ? (
               <>
                 <Spinner size="sm" /> Sending Invite...
               </>
