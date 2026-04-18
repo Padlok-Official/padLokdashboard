@@ -3,6 +3,7 @@ import { useAuthStore } from '@/stores/auth-store';
 import type { FC, ReactNode } from 'react';
 
 import LoginPage from '@/pages/login';
+import AcceptInvitePage from '@/pages/accept-invite';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import DashboardPage from '@/pages/dashboard';
 import FinancialForecastPage from '@/pages/financial-forecast';
@@ -46,6 +47,16 @@ export const router = createBrowserRouter([
     element: (
       <GuestGuard>
         <LoginPage />
+      </GuestGuard>
+    ),
+  },
+  {
+    // Public — guest-only. Existing admins get redirected home because
+    // re-accepting would try to create a duplicate account.
+    path: '/accept-invite',
+    element: (
+      <GuestGuard>
+        <AcceptInvitePage />
       </GuestGuard>
     ),
   },
