@@ -1,6 +1,7 @@
 import type { FC } from 'react';
-import { CircleDot, DollarSign, Activity, Zap, TrendingUp } from 'lucide-react';
+import { CircleDot, DollarSign, Activity, Zap } from 'lucide-react';
 import StatCard from '@/components/shared/StatCard';
+import RevenueChart from '@/components/charts/RevenueChart';
 
 interface InsightRow {
   label: string;
@@ -64,20 +65,7 @@ const IntegrationInsightsPage: FC = () => {
             trend="up"
           />
 
-          {/* Charges Optimization Score */}
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 text-center">
-            <h3 className="text-sm font-bold text-gray-900">
-              Charges Optimization Score
-            </h3>
-            <p className="mt-3 text-3xl font-bold text-brand-green">8.4</p>
-            <p className="mt-1 text-xs text-gray-400">out of 10</p>
-            <div className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-brand-green/30 bg-brand-green/10 px-3 py-1.5">
-              <TrendingUp size={14} className="text-brand-green" />
-              <span className="text-xs font-medium text-brand-green">
-                Excellent Performance
-              </span>
-            </div>
-          </div>
+          <RevenueChart />
         </div>
 
         {/* Right Column — Wallet Transaction Insights */}

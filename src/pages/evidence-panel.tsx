@@ -1,6 +1,8 @@
-import type { FC } from 'react';
+import { type FC, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp, Phone, Mail, Bell, Send } from 'lucide-react';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface TimelineEvent {
   color: string;
@@ -8,6 +10,7 @@ interface TimelineEvent {
   date: string;
   description: string;
   images?: number;
+  isBold?: boolean;
 }
 
 const timeline: TimelineEvent[] = [
@@ -42,18 +45,199 @@ const timeline: TimelineEvent[] = [
   },
   {
     color: 'bg-red-500',
-    title: 'Dispute Filed',
+    title: 'Reason for Dispute',
     date: 'Mar 24, 2026 - 09:15 AM',
     description:
       'Buyer filed dispute claiming the iPhone received has a cracked screen and is not as described. Requesting full refund.',
+    isBold: true,
   },
 ];
 
+const contacts = {
+  buyer: {
+    name: 'John Mensah',
+    role: 'Buyer',
+    email: 'john.mensah@email.com',
+    phone: '+233 24 123 4567',
+    initials: 'JM',
+  },
+  seller: {
+    name: 'Kwame Electronics',
+    role: 'Seller',
+    email: 'kwame.elec@business.com',
+    phone: '+233 20 987 6543',
+    initials: 'KE',
+  },
+};
+
+interface ContactPanelProps {
+  label: string;
+  contact: typeof contacts.buyer;
+  isOpen: boolean;
+  onToggle: () => void;
+}
+
+const ContactPanel: FC<ContactPanelProps> = ({ label, contact, isOpen, onToggle }) => {
+  const [message, setMessage] = useState('');
+  const [sending, setSending] = useState(false);
+
+  const handleSendNotification = async () => {
+    if (!message.trim()) return;
+    setSending(true);
+    await new Promise((r) => setTimeout(r, 1000));
+    setSending(false);
+    setMessage('');
+    toast.success(`Push notification sent to ${contact.name}`);
+  };
+
+  return (
+    <div className="rounded-lg border border-gray-200 overflow-hidden">
+      <button
+        onClick={onToggle}
+        className="flex w-full items-center justify-between bg-gray-50 px-4 py-2.5 text-sm font-medium text-gray-900 hover:bg-gray-100 transition-colors"
+      >
+        {label}
+        {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+      </button>
+
+      {isOpen && (
+        <div className="border-t border-gray-100 bg-white p-4">
+          {/* Contact Info */}
+          <div className="mb-3 flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-purple-100">
+              <span className="text-xs font-medium text-purple-600">{contact.initials}</span>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">{contact.name}</p>
+              <p className="text-xs text-gray-400">{contact.role}</p>
+            </div>
+          </div>
+
+          <div className="mb-4 space-y-2">
+            <div className="flex items-center gap-2 text-xs text-gray-600">
+              <Phone size={13} className="text-gray-400" />
+              {contact.phone}
+            </div>
+            <div className="flex items-center gap-2 text-xs text-gray-600">
+              <Mail size={13} className="text-gray-400" />
+              {contact.email}
+            </div>
+          </div>
+
+          {/* Push Notification */}
+          <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+            <div className="mb-2 flex items-center gap-1.5">
+              <Bell size={13} className="text-brand-green" />
+              <span className="text-xs font-medium text-gray-700">Send In-App Push Notification</span>
+            </div>
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Type your message..."
+              rows={2}
+              className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-xs outline-none focus:border-brand-green resize-none"
+            />
+            <button
+              onClick={handleSendNotification}
+              disabled={sending || !message.trim()}
+              className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md bg-[#020036] py-2 text-xs font-medium text-white disabled:opacity-50"
+            >
+              <Send size={12} />
+              {sending ? 'Sending...' : 'Send Notification'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const EvidencePanelPage: FC = () => {
   const navigate = useNavigate();
+  const [buyerOpen, setBuyerOpen] = useState(false);
+  const [sellerOpen, setSellerOpen] = useState(false);
+  const [showPayoutConfirm, setShowPayoutConfirm] = useState(false);
+  const [showRefundConfirm, setShowRefundConfirm] = useState(false);
+  const [processing, setProcessing] = useState(false);
+
+  const handlePayout = async () => {
+    setProcessing(true);
+    await new Promise((r) => setTimeout(r, 1500));
+    setProcessing(false);
+    setShowPayoutConfirm(false);
+    toast.success('Seller payout of GHS 2,450.00 approved successfully');
+  };
+
+  const handleRefund = async () => {
+    setProcessing(true);
+    await new Promise((r) => setTimeout(r, 1500));
+    setProcessing(false);
+    setShowRefundConfirm(false);
+    toast.success('Refund of GHS 2,450.00 issued to John Mensah');
+  };
 
   return (
     <div>
+      {/* Payout Confirmation Modal */}
+      {showPayoutConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !processing && setShowPayoutConfirm(false)} />
+          <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-gray-900">Approve Seller Payout</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Release <span className="font-semibold">GHS 2,450.00</span> from escrow to <span className="font-semibold">Kwame Electronics</span>?
+            </p>
+            <p className="mt-1 text-xs text-gray-400">This action cannot be undone.</p>
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                onClick={() => setShowPayoutConfirm(false)}
+                disabled={processing}
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePayout}
+                disabled={processing}
+                className="rounded-lg bg-[#7C3AED] px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+              >
+                {processing ? 'Processing...' : 'Confirm Payout'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Refund Confirmation Modal */}
+      {showRefundConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !processing && setShowRefundConfirm(false)} />
+          <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-gray-900">Refund Buyer</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Refund <span className="font-semibold">GHS 2,450.00</span> from escrow to <span className="font-semibold">John Mensah</span>?
+            </p>
+            <p className="mt-1 text-xs text-gray-400">This action cannot be undone.</p>
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                onClick={() => setShowRefundConfirm(false)}
+                disabled={processing}
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRefund}
+                disabled={processing}
+                className="rounded-lg bg-brand-green px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+              >
+                {processing ? 'Processing...' : 'Confirm Refund'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="mb-6">
         <button
@@ -140,7 +324,7 @@ const EvidencePanelPage: FC = () => {
                         {event.date}
                       </span>
                     </div>
-                    <p className="mt-1 text-sm text-gray-600">
+                    <p className={cn('mt-1 text-sm', event.isBold ? 'font-semibold text-gray-900' : 'text-gray-600')}>
                       {event.description}
                     </p>
 
@@ -171,16 +355,28 @@ const EvidencePanelPage: FC = () => {
               Admin Actions
             </h2>
             <div className="space-y-3">
-              <button className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2.5 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-100">
-                Communicate with Buyer
-              </button>
-              <button className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2.5 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-100">
-                Communicate with Seller
-              </button>
-              <button className="w-full rounded-lg bg-[#7C3AED] py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#6D28D9]">
+              <ContactPanel
+                label="Communicate with Buyer"
+                contact={contacts.buyer}
+                isOpen={buyerOpen}
+                onToggle={() => setBuyerOpen(!buyerOpen)}
+              />
+              <ContactPanel
+                label="Communicate with Seller"
+                contact={contacts.seller}
+                isOpen={sellerOpen}
+                onToggle={() => setSellerOpen(!sellerOpen)}
+              />
+              <button
+                onClick={() => setShowPayoutConfirm(true)}
+                className="w-full rounded-lg bg-[#7C3AED] py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#6D28D9]"
+              >
                 Approve Seller Payout
               </button>
-              <button className="w-full rounded-lg bg-brand-green py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-green/90">
+              <button
+                onClick={() => setShowRefundConfirm(true)}
+                className="w-full rounded-lg bg-brand-green py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-green/90"
+              >
                 Refund Buyer
               </button>
               <button className="w-full rounded-lg border border-[#F44336] bg-white py-2.5 text-sm font-medium text-[#F44336] transition-colors hover:bg-red-50">

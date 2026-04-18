@@ -34,8 +34,8 @@ const FinancialForecastPage: FC = () => {
         />
         <StatCard
           icon={<AlertTriangle size={20} className="text-white" />}
-          value="12.4 km"
-          label="Avg Trip Distance"
+          value="¢32.5k"
+          label="Projected Escrow Growth"
           change="+3.2%"
           trend="up"
         />
