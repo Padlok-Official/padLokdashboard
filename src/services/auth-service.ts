@@ -8,19 +8,15 @@ export interface LoginPayload {
 }
 
 /**
- * Shape returned by padlok-api POST /auth/login and /auth/refresh.
- * The access token goes to the axios Authorization header (via zustand);
- * the refresh token is persisted separately so we can rotate on 401.
+ * Shape `authService.login` returns to the dashboard — the compat adapter
+ * below unwraps padlok-api's native `{accessToken, refreshToken, admin:{...
+ * camelCase}}` into this legacy-friendly form. The refresh token is
+ * stashed separately via setRefreshToken so callers only see what they
+ * need on the response.
  */
 export interface LoginResponse {
-  accessToken: string;
-  refreshToken: string;
-  admin: AdminUser;
-}
-
-export interface RefreshResponse {
-  accessToken: string;
-  refreshToken: string;
+  token: string;
+  user: AdminUser;
 }
 
 /** Reply shape of GET /auth/invitations/:token — populates the accept-invite page. */
@@ -32,12 +28,14 @@ export interface InvitationPreview {
   expiresAt: string;
 }
 
-/** Matches the `reason` field the backend adds to 400 errors on the preview endpoint. */
+/** Typed `reason` field the backend adds to 400s on the preview endpoint. */
 export type InvitationInvalidReason = 'not_found' | 'expired' | 'accepted' | 'revoked';
 
+/** Body for POST /auth/accept-invite. */
 export interface AcceptInvitePayload {
   token: string;
-  user: AdminUser;
+  name: string;
+  password: string;
 }
 
 // Shape the admin-api (padlok-api) returns — camelCase, no is_admin flag.
@@ -145,6 +143,55 @@ const authService = {
     } finally {
       setRefreshToken(null);
     }
+  },
+
+  /**
+   * Preview an invitation before the user submits the accept form.
+   * Public endpoint; the token itself is the capability. The backend
+   * returns 400 with a typed `reason` for any invalid state (expired /
+   * accepted / revoked / not_found) — callers surface that to the UI.
+   */
+  getInvitationPreview: async (
+    token: string,
+  ): Promise<ApiResponse<InvitationPreview>> => {
+    const { data } = await apiClient.get<ApiResponse<InvitationPreview>>(
+      `/auth/invitations/${encodeURIComponent(token)}`,
+    );
+    return data;
+  },
+
+  /**
+   * Consume an invitation: padlok-api creates the admin and returns a
+   * fresh access+refresh pair. We unwrap the camelCase admin into the
+   * dashboard's legacy shape via normalizeAdmin so every consumer
+   * (AuthGuard, LogoutModal, admin-management) sees the same user type
+   * no matter how they arrived.
+   */
+  acceptInvite: async (
+    payload: AcceptInvitePayload,
+  ): Promise<ApiResponse<LoginResponse>> => {
+    const { data } = await apiClient.post<ApiResponse<AdminApiLoginData>>(
+      '/auth/accept-invite',
+      payload,
+    );
+    if (!data?.success || !data.data) {
+      return { success: false, message: data?.message ?? 'Failed to accept invitation' };
+    }
+
+    const raw = data.data;
+    const token = raw.accessToken ?? raw.token;
+    const user = normalizeAdmin(raw.admin ?? raw.user);
+
+    if (raw.refreshToken) setRefreshToken(raw.refreshToken);
+
+    if (!token || !user) {
+      return {
+        success: false,
+        message: 'Accept succeeded but the response was missing a token or admin profile.',
+      };
+    }
+
+    return { success: true, message: data.message, data: { token, user } };
   },
 };
 

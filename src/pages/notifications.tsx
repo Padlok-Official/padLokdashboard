@@ -43,19 +43,6 @@ const recentNotifications: Notification[] = [
   { recipient: 'Kofi Asante', userId: '#USR00178', type: 'Warning', subject: 'Suspicious activity detected', channels: ['sms'], status: 'Failed', time: '5 hours ago' },
 ];
 
-const quickTemplates = [
-  { title: 'Account Warning', description: 'Standard warning template', dotColor: 'bg-[#F44336]' },
-  { title: 'Dispute Resolution', description: 'Dispute outcome notification', dotColor: 'bg-[#020036]' },
-  { title: 'Payment Released', description: 'Escrow release confirmation', dotColor: 'bg-brand-green' },
-  { title: 'Platform Update', description: 'General announcement', dotColor: 'bg-gray-400' },
-];
-
-const channelPerformance = [
-  { channel: 'Push Notifications', rate: '99.1% delivery rate', count: '847', dotColor: 'bg-[#020036]' },
-  { channel: 'SMS Messages', rate: '97.8% delivery rate', count: '312', dotColor: 'bg-[#020036]' },
-  { channel: 'Email', rate: '94.2% delivery rate', count: '88', dotColor: 'bg-[#F59E0B]' },
-];
-
 const channelIcon = (ch: string) => {
   if (ch === 'push') return <Bell size={14} className="text-gray-500" />;
   if (ch === 'sms') return <Phone size={14} className="text-gray-500" />;

@@ -23,9 +23,10 @@ const LogoutModal: FC<LogoutModalProps> = ({ open, onClose }) => {
     setLoading(true);
 
     // Best-effort server-side revoke — don't block logout on API failure.
-    const refreshToken = useAuthStore.getState().refreshToken ?? undefined;
+    // authService.logout() reads the refresh token from its own localStorage
+    // slot and clears it before returning, so we don't pass anything in.
     try {
-      await authService.logout(refreshToken);
+      await authService.logout();
     } catch {
       // Ignore — we'll still clear local state below
     }
