@@ -2,6 +2,9 @@
   "permissions": {
     "additionalDirectories": [
       "/Users/berthajones/Desktop/padlok-api/src"
+    ],
+    "allow": [
+      "Bash(xargs ls *)"
     ]
   }
 }
