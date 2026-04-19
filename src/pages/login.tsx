@@ -3,6 +3,7 @@ import type { FC } from 'react';
 import { useNavigate } from 'react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import axios from 'axios';
 import Spinner from '@/components/shared/Spinner';
 import { Mail, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
@@ -32,11 +33,20 @@ const LoginPage: FC = () => {
         setAuth(response.data.token, response.data.user);
         toast.success('Welcome back!');
         navigate('/');
-      } else {
-        toast.error(response.message ?? 'Login failed');
+        return;
       }
-    } catch {
-      // DEV fallback: dummy login when backend is unreachable
+      toast.error(response.message ?? 'Login failed');
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response) {
+        const msg =
+          (err.response.data as { message?: string } | undefined)?.message ??
+          `Login failed (${err.response.status})`;
+        toast.error(msg);
+        return;
+      }
+
+      // True network error — backend unreachable. Offer a local dev session
+      // only when the user explicitly opts in with the dev credentials.
       if (formData.email === 'admin@padlok.com' && formData.password === 'admin123') {
         setAuth('dev-token-123', {
           id: '1',
@@ -45,11 +55,11 @@ const LoginPage: FC = () => {
           is_admin: true,
           avatar_url: null,
         });
-        toast.success('Welcome back!');
+        toast.success('Welcome back! (offline dev mode)');
         navigate('/');
-      } else {
-        toast.error('Invalid credentials. Use admin@padlok.com / admin123');
+        return;
       }
+      toast.error('Backend unreachable. Check the admin API is running.');
     }
   };
 
