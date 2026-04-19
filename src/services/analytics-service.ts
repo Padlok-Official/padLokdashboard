@@ -30,12 +30,82 @@ export interface FinancialSummary {
   generatedAt: string;
 }
 
+/**
+ * Forecast card block for the Financial Forecast page.
+ */
+export interface FinancialForecastApi {
+  monthly_forecasted_revenue: string;
+  seasonal_peak: { label: string; demand: string };
+  projected_escrow_growth: string;
+  currency: string;
+}
+
+export interface FinancialForecast {
+  monthlyForecastedRevenue: number;
+  seasonalPeak: { label: string; demand: string };
+  projectedEscrowGrowth: number;
+  currency: string;
+}
+
+/**
+ * One entry on the 12-month seasonal demand area chart.
+ */
+export interface SeasonalDemandPoint {
+  month: string; // YYYY-MM
+  shortLabel: string; // JAN, FEB, ...
+  value: number; // escrow transaction count
+}
+
 const analyticsService = {
   platformActivity: async (): Promise<ApiResponse<PlatformActivity>> => {
     const { data } = await apiClient.get<ApiResponse<PlatformActivity>>(
       '/analytics/platform-activity',
     );
     return data;
+  },
+
+  financialForecast: async (
+    currency = 'NGN',
+  ): Promise<ApiResponse<FinancialForecast>> => {
+    const { data } = await apiClient.get<ApiResponse<FinancialForecastApi>>(
+      '/analytics/financial-forecast',
+      { params: { currency } },
+    );
+    if (!data.success || !data.data) {
+      return { success: false, message: data.message };
+    }
+    const d = data.data;
+    return {
+      success: true,
+      message: data.message,
+      data: {
+        monthlyForecastedRevenue: Number(d.monthly_forecasted_revenue) || 0,
+        seasonalPeak: d.seasonal_peak,
+        projectedEscrowGrowth: Number(d.projected_escrow_growth) || 0,
+        currency: d.currency,
+      },
+    };
+  },
+
+  seasonalDemand: async (
+    months = 12,
+    currency = 'NGN',
+  ): Promise<ApiResponse<SeasonalDemandPoint[]>> => {
+    const { data } = await apiClient.get<
+      ApiResponse<Array<{ month: string; short_label: string; value: number }>>
+    >('/analytics/seasonal-demand', { params: { months, currency } });
+    if (!data.success || !data.data) {
+      return { success: false, message: data.message };
+    }
+    return {
+      success: true,
+      message: data.message,
+      data: data.data.map((r) => ({
+        month: r.month,
+        shortLabel: r.short_label,
+        value: Number(r.value) || 0,
+      })),
+    };
   },
 
   financialSummary: async (
