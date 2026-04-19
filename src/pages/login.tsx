@@ -30,23 +30,23 @@ const LoginPage: FC = () => {
     try {
       const response = await authService.login(formData);
       if (response.success && response.data) {
-        setAuth(response.data.token, response.data.user);
-        toast.success('Welcome back!');
+        const { accessToken, refreshToken, admin } = response.data;
+        setAuth(accessToken, admin, refreshToken);
+        toast.success(`Welcome back, ${admin.name.split(' ')[0]}!`);
         navigate('/');
-        return;
+      } else {
+        toast.error(response.message ?? 'Login failed');
       }
-      toast.error(response.message ?? 'Login failed');
-    } catch (err) {
-      if (axios.isAxiosError(err) && err.response) {
-        const msg =
-          (err.response.data as { message?: string } | undefined)?.message ??
-          `Login failed (${err.response.status})`;
-        toast.error(msg);
+    } catch (err: unknown) {
+      // Surface the backend's error message when possible.
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      const backendMessage = apiErr.response?.data?.message;
+      if (backendMessage) {
+        toast.error(backendMessage);
         return;
       }
 
-      // True network error — backend unreachable. Offer a local dev session
-      // only when the user explicitly opts in with the dev credentials.
+      // DEV fallback: dummy login when backend is unreachable.
       if (formData.email === 'admin@padlok.com' && formData.password === 'admin123') {
         setAuth('dev-token-123', {
           id: '1',
@@ -55,9 +55,10 @@ const LoginPage: FC = () => {
           is_admin: true,
           avatar_url: null,
         });
-        toast.success('Welcome back! (offline dev mode)');
+        toast.success('Welcome back! (dev mode — API unreachable)');
         navigate('/');
-        return;
+      } else {
+        toast.error('Unable to reach API. Dev fallback: admin@padlok.com / admin123');
       }
       toast.error('Backend unreachable. Check the admin API is running.');
     }

@@ -1,308 +1,583 @@
-import type { FC } from 'react';
-import { useNavigate } from 'react-router';
-import { Shield, Users, Scale, Wallet, Pencil, Trash2, Search } from 'lucide-react';
+import { type FC, useMemo, useState } from 'react';
+import {
+  Users,
+  UserCheck,
+  UserX,
+  Mail,
+  Pencil,
+  Trash2,
+  Search,
+  Plus,
+  AlertTriangle,
+} from 'lucide-react';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import StatCard from '@/components/shared/StatCard';
+import Spinner from '@/components/shared/Spinner';
+import AddAdminModal from '@/components/shared/AddAdminModal';
+import CreateRoleModal from '@/components/shared/CreateRoleModal';
+import type { RoleData } from '@/components/shared/CreateRoleModal';
+import {
+  useRoles,
+  useCreateRole,
+  useUpdateRole,
+  useDeleteRole,
+} from '@/hooks/useRoles';
+import {
+  useAdmins,
+  useInvitations,
+  useInviteAdmin,
+  useResendInvitation,
+  useRevokeInvitation,
+} from '@/hooks/useAdmins';
+import type { Invitation } from '@/services/admin-service';
 
-interface Admin {
-  initials: string;
-  name: string;
-  id: string;
-  role: string;
-  roleColor: string;
-  email: string;
-  status: 'Active' | 'Away' | 'Inactive';
-  lastActive: string;
-  bgColor: string;
-}
-
-const admins: Admin[] = [
-  { initials: 'KA', name: 'Kwame Asante', id: '#ADM001', role: 'Super Admin', roleColor: 'bg-brand-green/15 text-brand-green', email: 'kwame@padlok.com', status: 'Active', lastActive: 'Now', bgColor: 'bg-brand-green' },
-  { initials: 'AA', name: 'Abena Adjei', id: '#ADM002', role: 'Super Admin', roleColor: 'bg-brand-green/15 text-brand-green', email: 'abena@padlok.com', status: 'Active', lastActive: '2 hrs ago', bgColor: 'bg-purple-500' },
-  { initials: 'JM', name: 'John Mensah', id: '#ADM003', role: 'Operations', roleColor: 'bg-blue-100 text-blue-600', email: 'john.m@padlok.com', status: 'Active', lastActive: '30 min ago', bgColor: 'bg-blue-500' },
-  { initials: 'EO', name: 'Efua Owusu', id: '#ADM004', role: 'Dispute Officer', roleColor: 'bg-purple-100 text-purple-600', email: 'efua.o@padlok.com', status: 'Active', lastActive: '1 hr ago', bgColor: 'bg-amber-500' },
-  { initials: 'KF', name: 'Kofi Frimpong', id: '#ADM005', role: 'Finance Admin', roleColor: 'bg-red-100 text-red-500', email: 'kofi.f@padlok.com', status: 'Away', lastActive: '5 hrs ago', bgColor: 'bg-brand-green' },
-  { initials: 'AS', name: 'Ama Serwaa', id: '#ADM006', role: 'Operations', roleColor: 'bg-blue-100 text-blue-600', email: 'ama.s@padlok.com', status: 'Inactive', lastActive: '3 days ago', bgColor: 'bg-pink-500' },
-];
+type Tab = 'users' | 'roles' | 'invitations';
 
 const statusStyle: Record<string, string> = {
-  Active: 'text-brand-green',
-  Away: 'text-[#F59E0B]',
-  Inactive: 'text-[#F44336]',
+  active: 'text-brand-green',
+  away: 'text-[#F59E0B]',
+  inactive: 'text-[#F44336]',
+  suspended: 'text-[#F44336]',
 };
 
-interface Activity {
-  title: string;
-  time: string;
-  dotColor: string;
-}
+const invitationStatusStyle: Record<Invitation['status'], string> = {
+  pending: 'bg-[#F59E0B]/10 text-[#F59E0B]',
+  accepted: 'bg-brand-green/10 text-brand-green',
+  expired: 'bg-gray-100 text-gray-500',
+  revoked: 'bg-gray-100 text-gray-500',
+};
 
-const recentActivity: Activity[] = [
-  { title: 'Kwame Asante approved dispute #DSP0124', time: '2 minutes ago', dotColor: 'bg-brand-green' },
-  { title: 'John Mensah updated user KYC status', time: '15 minutes ago', dotColor: 'bg-brand-green' },
-  { title: 'Efua Owusu resolved dispute #DSP0118', time: '1 hour ago', dotColor: 'bg-brand-green' },
-  { title: 'Kofi Frimpong released escrow GHS 4,500', time: '2 hours ago', dotColor: 'bg-[#F59E0B]' },
-  { title: 'Abena Adjei flagged user #USR00321', time: '3 hours ago', dotColor: 'bg-[#F59E0B]' },
-  { title: 'Ama Serwaa verified 12 transactions', time: '5 hours ago', dotColor: 'bg-blue-500' },
-  { title: 'System: Login attempt blocked (ADM006)', time: '6 hours ago', dotColor: 'bg-[#F44336]' },
-  { title: 'New admin added: Kofi Boateng (#ADM014)', time: 'Yesterday', dotColor: 'bg-brand-green' },
-];
+/** Deterministic avatar color based on the admin's id/initials. */
+const avatarColorFor = (seed: string): string => {
+  const colors = [
+    'bg-brand-green',
+    'bg-purple-500',
+    'bg-blue-500',
+    'bg-amber-500',
+    'bg-pink-500',
+    'bg-rose-500',
+  ];
+  const hash = [...seed].reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return colors[hash % colors.length];
+};
 
-const roleCards = [
-  { icon: <Shield size={20} className="text-white" />, title: 'Super Admin', description: 'Full platform access', count: 2 },
-  { icon: <Users size={20} className="text-white" />, title: 'Operations Admin', description: 'Manage users, transactions', count: 5 },
-  { icon: <Scale size={20} className="text-white" />, title: 'Dispute Officer', description: 'Handle disputes, evidence', count: 3 },
-  { icon: <Wallet size={20} className="text-white" />, title: 'Finance Admin', description: 'Monitor escrow, finances', count: 4 },
-];
+const initialsFor = (name: string): string =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((s) => s[0]?.toUpperCase() ?? '')
+    .join('') || '??';
+
+const friendly = (t: string) =>
+  t.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+
+const formatRelative = (iso: string): string => {
+  const then = new Date(iso).getTime();
+  const diff = Date.now() - then;
+  if (diff < 60_000) return 'just now';
+  if (diff < 3_600_000) return `${Math.round(diff / 60_000)} min ago`;
+  if (diff < 86_400_000) return `${Math.round(diff / 3_600_000)} hr ago`;
+  return `${Math.round(diff / 86_400_000)} day${
+    Math.round(diff / 86_400_000) === 1 ? '' : 's'
+  } ago`;
+};
+
+// --------------------------------------------------------------------------
+// Page
+// --------------------------------------------------------------------------
 
 const AdminManagementPage: FC = () => {
-  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<Tab>('users');
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showCreateRoleModal, setShowCreateRoleModal] = useState(false);
+  const [editingRole, setEditingRole] = useState<RoleData | null>(null);
+
+  // Queries
+  const rolesQuery = useRoles();
+  const adminsQuery = useAdmins({ page: 1, limit: 20 });
+  const invitationsQuery = useInvitations('pending');
+
+  // Mutations
+  const createRole = useCreateRole();
+  const updateRole = useUpdateRole();
+  const deleteRole = useDeleteRole();
+  const inviteAdmin = useInviteAdmin();
+  const resendInvitation = useResendInvitation();
+  const revokeInvitation = useRevokeInvitation();
+
+  const isCreatingOrUpdatingRole =
+    createRole.isPending || updateRole.isPending;
+
+  // Map the role list for the Invite modal (it wants {id, name, description, permissions[]}
+  // keys). We pull key strings from the detail endpoint on-demand in a
+  // future iteration — for now the modal just shows name + description.
+  const rolesForInviteModal: RoleData[] = useMemo(
+    () =>
+      (rolesQuery.data ?? []).map((r) => ({
+        id: r.id,
+        name: r.name,
+        description: r.description ?? '',
+        permissions: [], // fetched lazily in edit flow; unused in invite UI
+      })),
+    [rolesQuery.data],
+  );
+
+  // Stats
+  const totalUsers = adminsQuery.data?.pagination.total ?? 0;
+  const activeCount =
+    adminsQuery.data?.items.filter((a) => a.status === 'active').length ?? 0;
+  const inactiveCount =
+    adminsQuery.data?.items.filter((a) => a.status === 'inactive').length ?? 0;
+  const pendingInvites = invitationsQuery.data?.pagination.total ?? 0;
+
+  // --- Handlers --------------------------------------------------------------
+
+  const handleCreateOrUpdateRole = (role: RoleData) => {
+    if (role.id) {
+      updateRole.mutate(
+        {
+          id: role.id,
+          payload: {
+            name: role.name,
+            description: role.description || null,
+            permissionKeys: role.permissions,
+          },
+        },
+        {
+          onSuccess: () => {
+            toast.success(`Role "${role.name}" updated`);
+            setShowCreateRoleModal(false);
+            setEditingRole(null);
+          },
+          onError: (err: Error) => toast.error(err.message),
+        },
+      );
+      return;
+    }
+
+    createRole.mutate(
+      {
+        name: role.name,
+        description: role.description || null,
+        permissionKeys: role.permissions,
+      },
+      {
+        onSuccess: (created) => {
+          toast.success(`Role "${created.name}" created`);
+          setShowCreateRoleModal(false);
+          setEditingRole(null);
+        },
+        onError: (err: Error) => toast.error(err.message),
+      },
+    );
+  };
+
+  const handleDeleteRole = (id: string, name: string) => {
+    if (!window.confirm(`Delete the "${name}" role? This cannot be undone.`)) {
+      return;
+    }
+    deleteRole.mutate(id, {
+      onSuccess: () => toast.success(`Role "${name}" deleted`),
+      onError: (err: Error) => toast.error(err.message),
+    });
+  };
+
+  const handleInvite = (email: string, roleId: string) => {
+    inviteAdmin.mutate(
+      { email, roleId },
+      {
+        onSuccess: (result) => {
+          toast.success(`Invitation sent to ${email} as ${result.roleName}`);
+          if (result.emailResult.devToken) {
+            // Handy for testing without real email delivery.
+            console.info(
+              '%c[dev] accept invite URL →',
+              'color:#2DB52D',
+              result.emailResult.inviteUrl,
+            );
+          }
+          setShowInviteModal(false);
+        },
+        onError: (err: Error) => toast.error(err.message),
+      },
+    );
+  };
+
+  const tabs: {
+    key: Tab;
+    label: string;
+    count: number;
+    icon: FC<{ size?: number; className?: string }>;
+  }[] = [
+    { key: 'users', label: 'Users', count: totalUsers, icon: Users },
+    { key: 'roles', label: 'Roles', count: rolesQuery.data?.length ?? 0, icon: UserCheck },
+    { key: 'invitations', label: 'Invitations', count: pendingInvites, icon: Mail },
+  ];
 
   return (
     <div>
-      {/* Breadcrumb */}
+      {/* Modals */}
+      <AddAdminModal
+        isOpen={showInviteModal}
+        onClose={() => setShowInviteModal(false)}
+        onSubmit={handleInvite}
+        roles={rolesForInviteModal}
+        isSubmitting={inviteAdmin.isPending}
+      />
+      <CreateRoleModal
+        isOpen={showCreateRoleModal}
+        onClose={() => {
+          setShowCreateRoleModal(false);
+          setEditingRole(null);
+        }}
+        onSubmit={handleCreateOrUpdateRole}
+        editRole={editingRole}
+        isSubmitting={isCreatingOrUpdatingRole}
+      />
+
+      {/* Header */}
       <div className="mb-1 text-sm text-gray-400">
         Dashboard <span className="mx-1">/</span>{' '}
         <span className="text-brand-green">Admin Management</span>
       </div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-brand-green">
-          Admin Management
-        </h1>
-        <button className="rounded-lg bg-[#020036] px-5 py-2.5 text-sm font-medium text-white">
-          + Add New Admin
+        <div>
+          <h1 className="text-2xl font-bold text-brand-green">User Management</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Manage users, roles, and invitations across all branches
+          </p>
+        </div>
+        <button
+          onClick={() => setShowInviteModal(true)}
+          disabled={rolesQuery.data?.length === 0}
+          className="flex items-center gap-2 rounded-lg bg-brand-green px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50"
+        >
+          <Plus size={16} />
+          Invite User
         </button>
       </div>
 
-      {/* Role Cards + Total */}
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        {roleCards.map((r) => (
-          <div
-            key={r.title}
-            className="rounded-2xl border border-brand-green/40 bg-white p-4"
-          >
-            <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#020036]">
-                {r.icon}
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-900">
-                  {r.title}
-                </p>
-                <p className="text-xs text-gray-500">{r.description}</p>
-              </div>
-            </div>
-            <div className="mt-3 flex items-baseline gap-1">
-              <span className="text-2xl font-bold text-brand-green">
-                {r.count}
-              </span>
-              <span className="text-xs text-gray-500">admins</span>
-            </div>
-          </div>
-        ))}
-        {/* Total Admins */}
-        <div className="rounded-2xl bg-brand-green/10 p-4 text-center">
-          <p className="text-xs text-gray-600">Total Admins</p>
-          <p className="mt-1 text-3xl font-bold text-brand-green">14</p>
-          <p className="text-xs text-gray-500">Active accounts</p>
-        </div>
+      {/* Stat Cards */}
+      <div className="mb-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard icon={<Users size={20} className="text-white" />} value={String(totalUsers)} label="Total Users" change="" trend="up" />
+        <StatCard icon={<UserCheck size={20} className="text-white" />} value={String(activeCount)} label="Active" change="" trend="up" />
+        <StatCard icon={<UserX size={20} className="text-white" />} value={String(inactiveCount)} label="Inactive" change="" trend="down" />
+        <StatCard icon={<Mail size={20} className="text-white" />} value={String(pendingInvites)} label="Pending Invites" change="" trend="up" />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Left — Admin Table */}
-        <div className="lg:col-span-2">
-          <div className="rounded-2xl border border-gray-200 bg-white">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-6 py-4">
-              <h2 className="text-base font-bold text-gray-900">
-                All Administrators
-              </h2>
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <Search
-                    size={14}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Search by name or email..."
-                    className="rounded-lg border border-gray-200 py-2 pl-8 pr-3 text-sm outline-none focus:border-brand-green"
-                  />
-                </div>
-                <button className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700">
-                  All Roles
-                </button>
-                <button className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700">
-                  Active
-                </button>
-                <button className="rounded-lg bg-[#020036] px-4 py-2 text-sm font-medium text-white">
-                  Export
-                </button>
-              </div>
+      {/* Tabs */}
+      <div className="mb-6 flex items-center gap-6 border-b border-gray-200">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={cn(
+              'flex items-center gap-2 border-b-2 px-1 pb-3 text-sm font-medium transition-colors',
+              activeTab === tab.key
+                ? 'border-brand-green text-brand-green'
+                : 'border-transparent text-gray-500 hover:text-gray-700',
+            )}
+          >
+            <tab.icon size={16} />
+            {tab.label}
+            <span
+              className={cn(
+                'rounded-full px-2 py-0.5 text-xs',
+                activeTab === tab.key
+                  ? 'bg-brand-green/10 text-brand-green'
+                  : 'bg-gray-100 text-gray-500',
+              )}
+            >
+              {tab.count}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* ---- USERS TAB ---- */}
+      {activeTab === 'users' && (
+        <div className="rounded-2xl border border-gray-200 bg-white">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-6 py-4">
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by name or email..."
+                className="rounded-lg border border-gray-200 py-2 pl-8 pr-3 text-sm outline-none focus:border-brand-green"
+              />
             </div>
+          </div>
+
+          {adminsQuery.isLoading ? (
+            <div className="flex justify-center py-16">
+              <Spinner size="md" />
+            </div>
+          ) : adminsQuery.error ? (
+            <ErrorState onRetry={() => adminsQuery.refetch()} />
+          ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-100">
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
-                      Administrator
-                    </th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
-                      Role
-                    </th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
-                      Email
-                    </th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
-                      Last Active
-                    </th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
-                      Actions
-                    </th>
+                    {['Administrator', 'Role', 'Email', 'Status', 'Last Active'].map((h) => (
+                      <th key={h} className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
+                        {h}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {admins.map((a, i) => (
-                    <tr
-                      key={i}
-                      className="border-b border-gray-50 last:border-b-0"
-                    >
+                  {adminsQuery.data?.items.map((a) => (
+                    <tr key={a.id} className="border-b border-gray-50 last:border-b-0">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div
                             className={cn(
                               'flex h-9 w-9 items-center justify-center rounded-full text-xs font-semibold text-white',
-                              a.bgColor,
+                              avatarColorFor(a.id),
                             )}
                           >
-                            {a.initials}
+                            {initialsFor(a.name)}
                           </div>
                           <div>
-                            <p className="text-sm font-medium text-gray-900">
-                              {a.name}
-                            </p>
-                            <p className="text-xs text-gray-400">{a.id}</p>
+                            <p className="text-sm font-medium text-gray-900">{a.name}</p>
+                            <p className="text-xs text-gray-400">#{a.id.slice(0, 8)}</p>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span
-                          className={cn(
-                            'whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium',
-                            a.roleColor,
-                          )}
-                        >
-                          {a.role}
+                        <span className="whitespace-nowrap rounded-full bg-brand-green/15 px-2.5 py-0.5 text-xs font-medium text-brand-green">
+                          {a.role.name}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
-                        {a.email}
-                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-700">{a.email}</td>
                       <td className="px-6 py-4">
-                        <span
-                          className={cn(
-                            'text-sm font-medium',
-                            statusStyle[a.status],
-                          )}
-                        >
+                        <span className={cn('text-sm font-medium capitalize', statusStyle[a.status])}>
                           {a.status}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
-                        {a.lastActive}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex gap-2">
-                          <button className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
-                            <Pencil size={16} />
-                          </button>
-                          <button className="rounded p-1 text-[#F44336] hover:bg-red-50">
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
+                        {a.lastActiveAt ? formatRelative(a.lastActiveAt) : '—'}
                       </td>
                     </tr>
                   ))}
+                  {adminsQuery.data?.items.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-12 text-center text-sm text-gray-400">
+                        No admins yet. Invite one to get started.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
-            <div className="flex items-center justify-between border-t border-gray-100 px-6 py-4">
-              <p className="text-sm text-gray-500">
-                Showing 6 of 14 administrators
-              </p>
-              <div className="flex gap-1">
-                {[1, 2, 3].map((p) => (
-                  <button
-                    key={p}
-                    className={cn(
-                      'h-8 w-8 rounded-lg text-sm font-medium',
-                      p === 1
-                        ? 'bg-[#020036] text-white'
-                        : 'border border-gray-200 text-gray-700',
-                    )}
-                  >
-                    {p}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+          )}
+        </div>
+      )}
 
-          {/* Role Permissions Management */}
-          <div className="mt-6 flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-6 py-5">
-            <div className="flex items-center gap-3">
-              <Shield size={20} className="text-brand-green" />
-              <div>
-                <p className="text-sm font-bold text-gray-900">
-                  Role Permissions Management
-                </p>
-                <p className="text-xs text-gray-500">
-                  Configure what each admin role can access and modify across the
-                  platform
-                </p>
-              </div>
-            </div>
+      {/* ---- ROLES TAB ---- */}
+      {activeTab === 'roles' && (
+        <div>
+          <div className="mb-5 flex justify-end">
             <button
-              onClick={() => navigate('/admin-management/permissions')}
-              className="rounded-lg bg-[#020036] px-5 py-2.5 text-sm font-medium text-white"
+              onClick={() => {
+                setEditingRole(null);
+                setShowCreateRoleModal(true);
+              }}
+              className="flex items-center gap-2 rounded-lg bg-brand-green px-5 py-2.5 text-sm font-medium text-white"
             >
-              Manage Roles
+              <Plus size={16} />
+              Create Role
             </button>
           </div>
-        </div>
 
-        {/* Right — Recent Activity */}
-        <div>
-          <div className="rounded-2xl border border-gray-200 bg-white p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-base font-bold text-gray-900">
-                Recent Activity
-              </h2>
-              <button className="text-sm font-medium text-brand-green">
-                View All
-              </button>
+          {rolesQuery.isLoading ? (
+            <div className="flex justify-center py-16">
+              <Spinner size="md" />
             </div>
-            <div className="space-y-5">
-              {recentActivity.map((a, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <div
-                    className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${a.dotColor}`}
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">
-                      {a.title}
-                    </p>
-                    <p className="text-xs text-gray-400">{a.time}</p>
+          ) : rolesQuery.error ? (
+            <ErrorState onRetry={() => rolesQuery.refetch()} />
+          ) : (
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              {rolesQuery.data?.map((role) => (
+                <div key={role.id} className="rounded-2xl border border-gray-200 bg-white p-5">
+                  <div className="mb-3 flex items-start justify-between">
+                    <div>
+                      <h3 className="flex items-center gap-2 text-base font-bold text-gray-900">
+                        {role.name}
+                        {role.isSystem && (
+                          <span className="rounded-full bg-brand-green/10 px-2 py-0.5 text-xs font-medium text-brand-green">
+                            System
+                          </span>
+                        )}
+                      </h3>
+                      <p className="text-sm text-gray-500">{role.description ?? '—'}</p>
+                    </div>
+                    <div className="flex gap-1.5">
+                      {!role.isSystem && (
+                        <>
+                          <button
+                            onClick={() => {
+                              // Loading the full role is handled inside the modal through editRole.
+                              setEditingRole({
+                                id: role.id,
+                                name: role.name,
+                                description: role.description ?? '',
+                                permissions: [], // populated from API on open
+                              });
+                              setShowCreateRoleModal(true);
+                            }}
+                            className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                          >
+                            <Pencil size={15} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteRole(role.id, role.name)}
+                            disabled={deleteRole.isPending}
+                            className="rounded p-1.5 text-[#F44336] hover:bg-red-50 disabled:opacity-50"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4 text-xs text-gray-500">
+                    <span>{role.permissionCount} permissions</span>
+                    <span>{role.userCount} users</span>
                   </div>
                 </div>
               ))}
             </div>
+          )}
+        </div>
+      )}
+
+      {/* ---- INVITATIONS TAB ---- */}
+      {activeTab === 'invitations' && (
+        <div className="rounded-2xl border border-gray-200 bg-white">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  {['Email', 'Role', 'Sent', 'Expires', 'Status', 'Actions'].map((h) => (
+                    <th key={h} className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {invitationsQuery.isLoading ? (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center">
+                      <Spinner size="md" />
+                    </td>
+                  </tr>
+                ) : invitationsQuery.error ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-sm text-red-500">
+                      Failed to load invitations.
+                    </td>
+                  </tr>
+                ) : invitationsQuery.data?.items.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-sm text-gray-400">
+                      No invitations sent yet. Click &ldquo;Invite User&rdquo; to send one.
+                    </td>
+                  </tr>
+                ) : (
+                  invitationsQuery.data?.items.map((inv) => (
+                    <tr key={inv.id} className="border-b border-gray-50 last:border-b-0">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <Mail size={14} className="text-gray-400" />
+                          <span className="text-sm text-gray-900">{inv.email}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="whitespace-nowrap rounded-full bg-brand-green/15 px-2.5 py-0.5 text-xs font-medium text-brand-green">
+                          {inv.role.name}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {formatRelative(inv.createdAt)}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {friendly(new Date(inv.expiresAt).toDateString())}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={cn(
+                            'rounded-full px-2.5 py-0.5 text-xs font-medium capitalize',
+                            invitationStatusStyle[inv.status],
+                          )}
+                        >
+                          {inv.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        {inv.status === 'pending' ? (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() =>
+                                resendInvitation.mutate(inv.id, {
+                                  onSuccess: () =>
+                                    toast.success('Invitation resent'),
+                                  onError: (err: Error) =>
+                                    toast.error(err.message),
+                                })
+                              }
+                              disabled={resendInvitation.isPending}
+                              className="text-sm font-medium text-brand-green hover:underline disabled:opacity-50"
+                            >
+                              Resend
+                            </button>
+                            <button
+                              onClick={() =>
+                                revokeInvitation.mutate(inv.id, {
+                                  onSuccess: () =>
+                                    toast.success('Invitation revoked'),
+                                  onError: (err: Error) =>
+                                    toast.error(err.message),
+                                })
+                              }
+                              disabled={revokeInvitation.isPending}
+                              className="text-sm font-medium text-[#F44336] hover:underline disabled:opacity-50"
+                            >
+                              Revoke
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-400">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
+
+const ErrorState: FC<{ onRetry: () => void }> = ({ onRetry }) => (
+  <div className="flex flex-col items-center gap-3 py-16 text-sm text-gray-500">
+    <AlertTriangle size={24} className="text-[#F59E0B]" />
+    <p>Couldn&apos;t reach the API.</p>
+    <button
+      onClick={onRetry}
+      className="rounded-lg bg-brand-green px-4 py-2 text-xs font-medium text-white"
+    >
+      Retry
+    </button>
+  </div>
+);
 
 export default AdminManagementPage;

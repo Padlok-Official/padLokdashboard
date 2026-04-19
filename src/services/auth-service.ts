@@ -2,12 +2,40 @@ import apiClient from './api-client';
 import type { ApiResponse } from '@/types/api';
 import type { AdminUser } from '@/types/user';
 
-interface LoginPayload {
+export interface LoginPayload {
   email: string;
   password: string;
 }
 
-interface LoginResponse {
+/**
+ * Shape returned by padlok-api POST /auth/login and /auth/refresh.
+ * The access token goes to the axios Authorization header (via zustand);
+ * the refresh token is persisted separately so we can rotate on 401.
+ */
+export interface LoginResponse {
+  accessToken: string;
+  refreshToken: string;
+  admin: AdminUser;
+}
+
+export interface RefreshResponse {
+  accessToken: string;
+  refreshToken: string;
+}
+
+/** Reply shape of GET /auth/invitations/:token — populates the accept-invite page. */
+export interface InvitationPreview {
+  email: string;
+  roleName: string;
+  roleDescription: string | null;
+  inviterName: string;
+  expiresAt: string;
+}
+
+/** Matches the `reason` field the backend adds to 400 errors on the preview endpoint. */
+export type InvitationInvalidReason = 'not_found' | 'expired' | 'accepted' | 'revoked';
+
+export interface AcceptInvitePayload {
   token: string;
   user: AdminUser;
 }
