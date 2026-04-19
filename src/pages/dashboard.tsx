@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { FC } from 'react';
+import type { FC, ReactNode } from 'react';
 import {
   BarChart,
   Bar,
@@ -8,32 +8,75 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
 } from 'recharts';
-import { AlertTriangle } from 'lucide-react';
+import {
+  AlertTriangle,
+  Wallet,
+  Lock,
+  Receipt,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePlatformActivity, useFinancialSummary } from '@/hooks/useAnalytics';
 
 /**
- * Demo-mode fallback. If /analytics/financial-summary returns an error
- * (404/5xx/network), we render these so the page stays useful for design
- * review. The doc's convention: render real data when available, demo data
- * (with a badge) otherwise — never a blank chart.
+ * Demo-mode fallback for the Financial Summary cards. If the API errors
+ * OR the real numbers are all zero, we render these so the page stays
+ * useful during design review and demos — always paired with a "demo"
+ * badge so nobody mistakes them for live figures.
  */
-const DEMO_PIE_DATA = [
-  { name: 'Total Revenue', value: 389200 },
-  { name: 'In Escrow Balance', value: 14250 },
-  { name: 'Transaction Fees', value: 2200 },
-];
-
-const PIE_COLORS = ['#2DB52D', '#033604', '#7DD87D'];
+const DEMO_FINANCIALS = {
+  totalRevenue: 389_200,
+  inEscrowBalance: 14_250,
+  transactionFees: 2_200,
+};
 
 const formatNumber = (val: number) => {
   if (val >= 1000) return `${(val / 1000).toFixed(val >= 10000 ? 0 : 1)}k`;
   return val.toString();
+};
+
+/**
+ * Currency prefix lookup. Keep this tiny — we only ever surface the three
+ * rails the admin-api exposes. Fallback to the cedi sign to match earlier
+ * copy in the design files.
+ */
+const currencyPrefix = (code: string | undefined): string => {
+  switch (code) {
+    case 'NGN':
+      return '₦';
+    case 'USD':
+      return '$';
+    case 'GHS':
+      return 'GH₵';
+    default:
+      return '¢';
+  }
+};
+
+/**
+ * Compact currency formatter for stat card values. We don't want
+ * "₦389,200.00" squeezed into a narrow card — scaling to "₦389.2k" /
+ * "₦1.4M" keeps things scannable. Exact values are in the tooltip.
+ */
+const formatCurrencyCompact = (value: number, code: string | undefined): string => {
+  const prefix = currencyPrefix(code);
+  if (!Number.isFinite(value) || value === 0) return `${prefix}0`;
+  const abs = Math.abs(value);
+  const sign = value < 0 ? '-' : '';
+  if (abs >= 1_000_000) return `${sign}${prefix}${(abs / 1_000_000).toFixed(1)}M`;
+  if (abs >= 10_000) return `${sign}${prefix}${(abs / 1_000).toFixed(0)}k`;
+  if (abs >= 1_000) return `${sign}${prefix}${(abs / 1_000).toFixed(1)}k`;
+  return `${sign}${prefix}${abs.toFixed(0)}`;
+};
+
+/** Full-precision value for tooltips and accessibility. */
+const formatCurrencyFull = (value: number, code: string | undefined): string => {
+  const prefix = currencyPrefix(code);
+  try {
+    return `${prefix}${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  } catch {
+    return `${prefix}${value}`;
+  }
 };
 
 /**
@@ -64,6 +107,63 @@ const LiveIndicator: FC<{ isFetching: boolean; error: unknown }> = ({
   );
 };
 
+/**
+ * One row in the Financial Summary side panel. Icon tile on the left, then
+ * label + compact-formatted value stacked, with the percent-of-total chip
+ * on the far right so the eye can still compare proportions without a pie
+ * chart. Tooltip (title attr) carries the full-precision number.
+ */
+const SummaryCard: FC<{
+  icon: ReactNode;
+  iconBg: string;
+  label: string;
+  value: number;
+  currencyCode: string | undefined;
+  percentOfTotal: number;
+  isLoading: boolean;
+}> = ({ icon, iconBg, label, value, currencyCode, percentOfTotal, isLoading }) => {
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 p-3">
+        <div className="h-10 w-10 shrink-0 animate-pulse rounded-lg bg-gray-200" />
+        <div className="flex-1 space-y-1.5">
+          <div className="h-3 w-20 animate-pulse rounded bg-gray-200" />
+          <div className="h-5 w-24 animate-pulse rounded bg-gray-200" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white p-3 transition-colors hover:border-brand-green/30 hover:bg-[#F6FBF6]"
+      title={`${label}: ${formatCurrencyFull(value, currencyCode)}`}
+    >
+      <div
+        className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-lg', iconBg)}
+      >
+        {icon}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-xs font-medium text-gray-500">{label}</p>
+        <p className="mt-0.5 truncate text-lg font-bold text-gray-900">
+          {formatCurrencyCompact(value, currencyCode)}
+        </p>
+      </div>
+      <span
+        className={cn(
+          'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums',
+          percentOfTotal > 0
+            ? 'bg-brand-green/10 text-brand-green'
+            : 'bg-gray-100 text-gray-400',
+        )}
+      >
+        {percentOfTotal.toFixed(1)}%
+      </span>
+    </div>
+  );
+};
+
 const DashboardPage: FC = () => {
   const {
     data: activity,
@@ -90,26 +190,34 @@ const DashboardPage: FC = () => {
     [activity],
   );
 
-  // Real financials when the API is happy; demo rows when it errors.
-  // A slice where every slot is zero (fresh DB) would render as a blank
-  // ring, so we fall back to demo values in that case too.
-  const pieData = useMemo(() => {
-    if (!financials) return DEMO_PIE_DATA;
-    const real = [
-      { name: 'Total Revenue', value: financials.totalRevenue },
-      { name: 'In Escrow Balance', value: financials.inEscrowBalance },
-      { name: 'Transaction Fees', value: financials.transactionFees },
-    ];
-    const total = real.reduce((sum, r) => sum + r.value, 0);
-    return total > 0 ? real : DEMO_PIE_DATA;
+  // Real financials when the API is happy; demo rows when it errors or
+  // when the real numbers are all zero (fresh DB → pie/cards would be
+  // blank which tells the admin nothing useful).
+  const financialsForDisplay = useMemo(() => {
+    if (!financials) return DEMO_FINANCIALS;
+    const realTotal =
+      financials.totalRevenue + financials.inEscrowBalance + financials.transactionFees;
+    return realTotal > 0
+      ? {
+          totalRevenue: financials.totalRevenue,
+          inEscrowBalance: financials.inEscrowBalance,
+          transactionFees: financials.transactionFees,
+        }
+      : DEMO_FINANCIALS;
   }, [financials]);
 
-  const pieIsDemo = !financials || financialsError !== null
-    ? true
-    : [financials.totalRevenue, financials.inEscrowBalance, financials.transactionFees]
-        .every((v) => v === 0);
+  const summaryIsDemo =
+    !financials ||
+    financialsError !== null ||
+    financials.totalRevenue + financials.inEscrowBalance + financials.transactionFees === 0;
 
-  const currencySymbol = financials?.currency === 'NGN' ? '₦' : financials?.currency === 'USD' ? '$' : '¢';
+  // Denominator for the % chip on each card. Guard against 0 so we don't
+  // divide by zero when the demo-fallback still hasn't kicked in.
+  const summaryTotal =
+    financialsForDisplay.totalRevenue +
+    financialsForDisplay.inEscrowBalance +
+    financialsForDisplay.transactionFees;
+  const pct = (v: number) => (summaryTotal > 0 ? (v / summaryTotal) * 100 : 0);
 
   return (
     <div>
@@ -176,11 +284,11 @@ const DashboardPage: FC = () => {
           )}
         </div>
 
-        {/* Pie Chart — Financial Summary */}
+        {/* Financial Summary — 3 stacked stat cards (replaces the donut) */}
         <div className="rounded-2xl border border-gray-200 bg-white p-6 lg:col-span-2">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="text-lg font-bold text-gray-900">Financial Summary</h3>
-            {pieIsDemo && (
+            {summaryIsDemo && (
               <span
                 className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-500"
                 title={
@@ -194,45 +302,44 @@ const DashboardPage: FC = () => {
             )}
           </div>
 
-          {financialsLoading ? (
-            <div className="flex h-[280px] items-center justify-center">
-              <div className="h-36 w-36 animate-pulse rounded-full border-[18px] border-gray-200" />
+          <div className="flex flex-col gap-3">
+            <SummaryCard
+              icon={<Wallet size={18} className="text-brand-green" />}
+              iconBg="bg-brand-green/10"
+              label="Total Revenue"
+              value={financialsForDisplay.totalRevenue}
+              currencyCode={financials?.currency}
+              percentOfTotal={pct(financialsForDisplay.totalRevenue)}
+              isLoading={financialsLoading}
+            />
+            <SummaryCard
+              icon={<Lock size={18} className="text-white" />}
+              iconBg="bg-[#033604]"
+              label="In Escrow Balance"
+              value={financialsForDisplay.inEscrowBalance}
+              currencyCode={financials?.currency}
+              percentOfTotal={pct(financialsForDisplay.inEscrowBalance)}
+              isLoading={financialsLoading}
+            />
+            <SummaryCard
+              icon={<Receipt size={18} className="text-[#033604]" />}
+              iconBg="bg-[#E4F5E4]"
+              label="Transaction Fees"
+              value={financialsForDisplay.transactionFees}
+              currencyCode={financials?.currency}
+              percentOfTotal={pct(financialsForDisplay.transactionFees)}
+              isLoading={financialsLoading}
+            />
+          </div>
+
+          {/* Total footer — small, muted, full precision */}
+          {!financialsLoading && (
+            <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3 text-xs">
+              <span className="font-medium text-gray-500">Total value</span>
+              <span className="font-semibold text-gray-900 tabular-nums">
+                {formatCurrencyFull(summaryTotal, financials?.currency)}
+              </span>
             </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="45%"
-                  outerRadius={75}
-                  innerRadius={40}
-                  dataKey="value"
-                  label={({ percent }) => `${((percent ?? 0) * 100).toFixed(1)}%`}
-                  labelLine={false}
-                >
-                  {pieData.map((_, idx) => (
-                    <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(val: number, name: string) => [
-                    `${currencySymbol}${val.toLocaleString()}`,
-                    name,
-                  ]}
-                  contentStyle={{
-                    borderRadius: '8px',
-                    border: '1px solid #e0e0e0',
-                    fontSize: '12px',
-                  }}
-                />
-                <Legend
-                  iconType="circle"
-                  iconSize={8}
-                  wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
           )}
         </div>
       </div>
