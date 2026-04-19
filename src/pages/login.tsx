@@ -3,6 +3,7 @@ import type { FC } from 'react';
 import { useNavigate } from 'react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import axios from 'axios';
 import Spinner from '@/components/shared/Spinner';
 import { Mail, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
@@ -59,6 +60,7 @@ const LoginPage: FC = () => {
       } else {
         toast.error('Unable to reach API. Dev fallback: admin@padlok.com / admin123');
       }
+      toast.error('Backend unreachable. Check the admin API is running.');
     }
   };
 
