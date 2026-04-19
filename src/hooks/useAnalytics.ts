@@ -15,6 +15,9 @@ import type {
   SeasonalDemandPoint,
   TransactionInsights,
   RevenueTrendPoint,
+  PaymentBehavior,
+  WalletBalanceTrendPoint,
+  RevenueEfficiency,
 } from '@/services/analytics-service';
 
 const PLATFORM_ACTIVITY_KEY = ['analytics', 'platform-activity'] as const;
@@ -28,6 +31,12 @@ const TRANSACTION_INSIGHTS_KEY = (currency: string) =>
   ['analytics', 'transaction-insights', currency] as const;
 const REVENUE_TREND_KEY = (months: number, currency: string) =>
   ['analytics', 'revenue-trend', months, currency] as const;
+const PAYMENT_BEHAVIOR_KEY = (currency: string) =>
+  ['analytics', 'payment-behavior', currency] as const;
+const WALLET_BALANCE_TREND_KEY = (days: number, currency: string) =>
+  ['analytics', 'wallet-balance-trend', days, currency] as const;
+const REVENUE_EFFICIENCY_KEY = (currency: string) =>
+  ['analytics', 'revenue-efficiency', currency] as const;
 
 /**
  * Live platform activity counts for the BI Overview histogram.
@@ -150,4 +159,58 @@ export const useRevenueTrend = (months = 6, currency = 'NGN') =>
     refetchInterval: 5 * 60_000,
     refetchIntervalInBackground: false,
     staleTime: 60_000,
+  });
+
+/**
+ * Payment behavior (avg top-up, hourly cadence, tier bar chart).
+ */
+export const usePaymentBehavior = (currency = 'NGN') =>
+  useQuery<PaymentBehavior>({
+    queryKey: PAYMENT_BEHAVIOR_KEY(currency),
+    queryFn: async () => {
+      const res = await analyticsService.paymentBehavior(currency);
+      if (!res.success || !res.data) {
+        throw new Error(res.message ?? 'Failed to load payment behavior');
+      }
+      return res.data;
+    },
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
+    staleTime: 30_000,
+  });
+
+/**
+ * Per-day average wallet balance. Daily buckets — 5 min poll.
+ */
+export const useWalletBalanceTrend = (days = 7, currency = 'NGN') =>
+  useQuery<WalletBalanceTrendPoint[]>({
+    queryKey: WALLET_BALANCE_TREND_KEY(days, currency),
+    queryFn: async () => {
+      const res = await analyticsService.walletBalanceTrend(days, currency);
+      if (!res.success || !res.data) {
+        throw new Error(res.message ?? 'Failed to load wallet balance trend');
+      }
+      return res.data;
+    },
+    refetchInterval: 5 * 60_000,
+    refetchIntervalInBackground: false,
+    staleTime: 60_000,
+  });
+
+/**
+ * Revenue efficiency tile values for the Revenue Analytics page.
+ */
+export const useRevenueEfficiency = (currency = 'NGN') =>
+  useQuery<RevenueEfficiency>({
+    queryKey: REVENUE_EFFICIENCY_KEY(currency),
+    queryFn: async () => {
+      const res = await analyticsService.revenueEfficiency(currency);
+      if (!res.success || !res.data) {
+        throw new Error(res.message ?? 'Failed to load revenue efficiency');
+      }
+      return res.data;
+    },
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
+    staleTime: 30_000,
   });

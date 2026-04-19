@@ -95,6 +95,59 @@ export interface RevenueTrendPoint {
   forecast: number;
 }
 
+/**
+ * Payment behavior (top-up patterns) for the Payment Behavior page.
+ * `promo_redemption_pct` currently hard-codes to "0" on the backend until
+ * the promotions/redemptions surface lands in padlokbackend.
+ */
+export interface PaymentBehaviorApi {
+  avg_topup_amount: string;
+  topup_per_hour: string;
+  promo_redemption_pct: string;
+  topup_by_tier: Array<{ tier: string; count: number }>;
+  currency: string;
+}
+
+export interface PaymentBehavior {
+  avgTopupAmount: number;
+  topupPerHour: number;
+  promoRedemptionPct: number;
+  topupByTier: Array<{ tier: string; count: number }>;
+  currency: string;
+}
+
+/**
+ * One point on the average-wallet-balance line chart.
+ */
+export interface WalletBalanceTrendPointApi {
+  date: string; // YYYY-MM-DD
+  day_label: string; // MON, TUE, ...
+  avg_balance: string;
+}
+
+export interface WalletBalanceTrendPoint {
+  date: string;
+  dayLabel: string;
+  avgBalance: number;
+}
+
+/**
+ * Revenue efficiency tile values for the Revenue Analytics page.
+ */
+export interface RevenueEfficiencyApi {
+  revenue_per_transaction: string;
+  service_availability_pct: string;
+  pricing_efficiency_pct: string;
+  currency: string;
+}
+
+export interface RevenueEfficiency {
+  revenuePerTransaction: number;
+  serviceAvailabilityPct: number;
+  pricingEfficiencyPct: number;
+  currency: string;
+}
+
 const analyticsService = {
   platformActivity: async (): Promise<ApiResponse<PlatformActivity>> => {
     const { data } = await apiClient.get<ApiResponse<PlatformActivity>>(
@@ -192,6 +245,75 @@ const analyticsService = {
         revenue: Number(r.revenue) || 0,
         forecast: Number(r.forecast) || 0,
       })),
+    };
+  },
+
+  paymentBehavior: async (
+    currency = 'NGN',
+  ): Promise<ApiResponse<PaymentBehavior>> => {
+    const { data } = await apiClient.get<ApiResponse<PaymentBehaviorApi>>(
+      '/analytics/payment-behavior',
+      { params: { currency } },
+    );
+    if (!data.success || !data.data) {
+      return { success: false, message: data.message };
+    }
+    const d = data.data;
+    return {
+      success: true,
+      message: data.message,
+      data: {
+        avgTopupAmount: Number(d.avg_topup_amount) || 0,
+        topupPerHour: Number(d.topup_per_hour) || 0,
+        promoRedemptionPct: Number(d.promo_redemption_pct) || 0,
+        topupByTier: d.topup_by_tier,
+        currency: d.currency,
+      },
+    };
+  },
+
+  walletBalanceTrend: async (
+    days = 7,
+    currency = 'NGN',
+  ): Promise<ApiResponse<WalletBalanceTrendPoint[]>> => {
+    const { data } = await apiClient.get<ApiResponse<WalletBalanceTrendPointApi[]>>(
+      '/analytics/wallet-balance-trend',
+      { params: { days, currency } },
+    );
+    if (!data.success || !data.data) {
+      return { success: false, message: data.message };
+    }
+    return {
+      success: true,
+      message: data.message,
+      data: data.data.map((r) => ({
+        date: r.date,
+        dayLabel: r.day_label,
+        avgBalance: Number(r.avg_balance) || 0,
+      })),
+    };
+  },
+
+  revenueEfficiency: async (
+    currency = 'NGN',
+  ): Promise<ApiResponse<RevenueEfficiency>> => {
+    const { data } = await apiClient.get<ApiResponse<RevenueEfficiencyApi>>(
+      '/analytics/revenue-efficiency',
+      { params: { currency } },
+    );
+    if (!data.success || !data.data) {
+      return { success: false, message: data.message };
+    }
+    const d = data.data;
+    return {
+      success: true,
+      message: data.message,
+      data: {
+        revenuePerTransaction: Number(d.revenue_per_transaction) || 0,
+        serviceAvailabilityPct: Number(d.service_availability_pct) || 0,
+        pricingEfficiencyPct: Number(d.pricing_efficiency_pct) || 0,
+        currency: d.currency,
+      },
     };
   },
 
