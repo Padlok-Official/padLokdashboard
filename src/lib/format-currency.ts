@@ -9,6 +9,6 @@ export function formatCurrency(amount: number | string, currency = 'NGN'): strin
   }).format(num);
 }
 
-export function maskAmount(amount: string): string {
+export function maskAmount(_amount: string): string {
   return '****';
 }

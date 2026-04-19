@@ -3,7 +3,6 @@ import type { FC } from 'react';
 import { useNavigate } from 'react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import axios from 'axios';
 import Spinner from '@/components/shared/Spinner';
 import { Mail, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
@@ -30,9 +29,13 @@ const LoginPage: FC = () => {
     try {
       const response = await authService.login(formData);
       if (response.success && response.data) {
-        const { accessToken, refreshToken, admin } = response.data;
-        setAuth(accessToken, admin, refreshToken);
-        toast.success(`Welcome back, ${admin.name.split(' ')[0]}!`);
+        // authService.login unwraps padlok-api's native shape into
+        // { token, user } before we see it. setAuth's third arg is the
+        // refresh token — authService stashes that in its own localStorage
+        // slot, so we don't pass one through here.
+        const { token, user } = response.data;
+        setAuth(token, user);
+        toast.success(`Welcome back, ${user.name.split(' ')[0]}!`);
         navigate('/');
       } else {
         toast.error(response.message ?? 'Login failed');

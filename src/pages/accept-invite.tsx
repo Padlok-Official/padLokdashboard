@@ -135,9 +135,12 @@ const AcceptInvitePage: FC = () => {
         return;
       }
 
-      const { accessToken, refreshToken, admin } = res.data;
-      setAuth(accessToken, admin, refreshToken);
-      toast.success(`Welcome, ${admin.name.split(' ')[0]}! You're in.`);
+      // authService.acceptInvite unwraps padlok-api's camelCase shape into
+      // { token, user } — same as login — so the rest of the app sees a
+      // single admin shape regardless of the sign-in path.
+      const { token: accessToken, user } = res.data;
+      setAuth(accessToken, user);
+      toast.success(`Welcome, ${user.name.split(' ')[0]}! You're in.`);
       navigate('/', { replace: true });
     } catch (err: unknown) {
       const axErr = err as AxiosError<{ message?: string; reason?: InvitationInvalidReason }>;
