@@ -15,10 +15,15 @@ import {
 } from 'recharts';
 import { AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { usePlatformActivity } from '@/hooks/useAnalytics';
+import { usePlatformActivity, useFinancialSummary } from '@/hooks/useAnalytics';
 
-
-const pieData = [
+/**
+ * Demo-mode fallback. If /analytics/financial-summary returns an error
+ * (404/5xx/network), we render these so the page stays useful for design
+ * review. The doc's convention: render real data when available, demo data
+ * (with a badge) otherwise — never a blank chart.
+ */
+const DEMO_PIE_DATA = [
   { name: 'Total Revenue', value: 389200 },
   { name: 'In Escrow Balance', value: 14250 },
   { name: 'Transaction Fees', value: 2200 },
@@ -67,6 +72,12 @@ const DashboardPage: FC = () => {
     error,
   } = usePlatformActivity();
 
+  const {
+    data: financials,
+    isLoading: financialsLoading,
+    error: financialsError,
+  } = useFinancialSummary();
+
   // Transform API response → histogram rows. Until the first fetch
   // resolves, show zeros so the chart axes are stable.
   const histogramData = useMemo(
@@ -78,6 +89,27 @@ const DashboardPage: FC = () => {
     ],
     [activity],
   );
+
+  // Real financials when the API is happy; demo rows when it errors.
+  // A slice where every slot is zero (fresh DB) would render as a blank
+  // ring, so we fall back to demo values in that case too.
+  const pieData = useMemo(() => {
+    if (!financials) return DEMO_PIE_DATA;
+    const real = [
+      { name: 'Total Revenue', value: financials.totalRevenue },
+      { name: 'In Escrow Balance', value: financials.inEscrowBalance },
+      { name: 'Transaction Fees', value: financials.transactionFees },
+    ];
+    const total = real.reduce((sum, r) => sum + r.value, 0);
+    return total > 0 ? real : DEMO_PIE_DATA;
+  }, [financials]);
+
+  const pieIsDemo = !financials || financialsError !== null
+    ? true
+    : [financials.totalRevenue, financials.inEscrowBalance, financials.transactionFees]
+        .every((v) => v === 0);
+
+  const currencySymbol = financials?.currency === 'NGN' ? '₦' : financials?.currency === 'USD' ? '$' : '¢';
 
   return (
     <div>
@@ -146,38 +178,62 @@ const DashboardPage: FC = () => {
 
         {/* Pie Chart — Financial Summary */}
         <div className="rounded-2xl border border-gray-200 bg-white p-6 lg:col-span-2">
-          <h3 className="mb-4 text-lg font-bold text-gray-900">Financial Summary</h3>
-          <ResponsiveContainer width="100%" height={280}>
-            <PieChart>
-              <Pie
-                data={pieData}
-                cx="50%"
-                cy="45%"
-                outerRadius={75}
-                innerRadius={40}
-                dataKey="value"
-                label={({ percent }) => `${((percent ?? 0) * 100).toFixed(1)}%`}
-                labelLine={false}
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-lg font-bold text-gray-900">Financial Summary</h3>
+            {pieIsDemo && (
+              <span
+                className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-500"
+                title={
+                  financialsError
+                    ? "Couldn't reach the analytics endpoint — showing demo data."
+                    : 'No live financial activity yet — showing demo data.'
+                }
               >
-                {pieData.map((_, idx) => (
-                  <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip
-                formatter={(val: number, name: string) => [`¢${val.toLocaleString()}`, name]}
-                contentStyle={{
-                  borderRadius: '8px',
-                  border: '1px solid #e0e0e0',
-                  fontSize: '12px',
-                }}
-              />
-              <Legend
-                iconType="circle"
-                iconSize={8}
-                wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
+                demo
+              </span>
+            )}
+          </div>
+
+          {financialsLoading ? (
+            <div className="flex h-[280px] items-center justify-center">
+              <div className="h-36 w-36 animate-pulse rounded-full border-[18px] border-gray-200" />
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={280}>
+              <PieChart>
+                <Pie
+                  data={pieData}
+                  cx="50%"
+                  cy="45%"
+                  outerRadius={75}
+                  innerRadius={40}
+                  dataKey="value"
+                  label={({ percent }) => `${((percent ?? 0) * 100).toFixed(1)}%`}
+                  labelLine={false}
+                >
+                  {pieData.map((_, idx) => (
+                    <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(val: number, name: string) => [
+                    `${currencySymbol}${val.toLocaleString()}`,
+                    name,
+                  ]}
+                  contentStyle={{
+                    borderRadius: '8px',
+                    border: '1px solid #e0e0e0',
+                    fontSize: '12px',
+                  }}
+                />
+                <Legend
+                  iconType="circle"
+                  iconSize={8}
+                  wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 
