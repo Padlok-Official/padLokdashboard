@@ -56,6 +56,45 @@ export interface SeasonalDemandPoint {
   value: number; // escrow transaction count
 }
 
+/**
+ * Transaction insights block for the Integration Insights page.
+ * All money fields arrive as strings on the wire; parsed to numbers here.
+ */
+export interface TransactionInsightsApi {
+  avg_transaction_value: string;
+  failed_rate_pct: string;
+  refund_rate_pct: string;
+  transaction_volume: number;
+  daily_transactions: number;
+  daily_avg_value: string;
+  currency: string;
+}
+
+export interface TransactionInsights {
+  avgTransactionValue: number;
+  failedRatePct: number;
+  refundRatePct: number;
+  transactionVolume: number;
+  dailyTransactions: number;
+  dailyAvgValue: number;
+  currency: string;
+}
+
+/**
+ * Revenue-vs-forecast point for the line chart.
+ */
+export interface RevenueTrendPointApi {
+  month: string; // YYYY-MM
+  revenue: string;
+  forecast: string;
+}
+
+export interface RevenueTrendPoint {
+  month: string; // YYYY-MM
+  revenue: number;
+  forecast: number;
+}
+
 const analyticsService = {
   platformActivity: async (): Promise<ApiResponse<PlatformActivity>> => {
     const { data } = await apiClient.get<ApiResponse<PlatformActivity>>(
@@ -104,6 +143,54 @@ const analyticsService = {
         month: r.month,
         shortLabel: r.short_label,
         value: Number(r.value) || 0,
+      })),
+    };
+  },
+
+  transactionInsights: async (
+    currency = 'NGN',
+  ): Promise<ApiResponse<TransactionInsights>> => {
+    const { data } = await apiClient.get<ApiResponse<TransactionInsightsApi>>(
+      '/analytics/transaction-insights',
+      { params: { currency } },
+    );
+    if (!data.success || !data.data) {
+      return { success: false, message: data.message };
+    }
+    const d = data.data;
+    return {
+      success: true,
+      message: data.message,
+      data: {
+        avgTransactionValue: Number(d.avg_transaction_value) || 0,
+        failedRatePct: Number(d.failed_rate_pct) || 0,
+        refundRatePct: Number(d.refund_rate_pct) || 0,
+        transactionVolume: d.transaction_volume,
+        dailyTransactions: d.daily_transactions,
+        dailyAvgValue: Number(d.daily_avg_value) || 0,
+        currency: d.currency,
+      },
+    };
+  },
+
+  revenueTrend: async (
+    months = 6,
+    currency = 'NGN',
+  ): Promise<ApiResponse<RevenueTrendPoint[]>> => {
+    const { data } = await apiClient.get<ApiResponse<RevenueTrendPointApi[]>>(
+      '/analytics/revenue-trend',
+      { params: { months, currency } },
+    );
+    if (!data.success || !data.data) {
+      return { success: false, message: data.message };
+    }
+    return {
+      success: true,
+      message: data.message,
+      data: data.data.map((r) => ({
+        month: r.month,
+        revenue: Number(r.revenue) || 0,
+        forecast: Number(r.forecast) || 0,
       })),
     };
   },

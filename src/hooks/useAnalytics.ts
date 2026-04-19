@@ -13,6 +13,8 @@ import type {
   FinancialSummary,
   FinancialForecast,
   SeasonalDemandPoint,
+  TransactionInsights,
+  RevenueTrendPoint,
 } from '@/services/analytics-service';
 
 const PLATFORM_ACTIVITY_KEY = ['analytics', 'platform-activity'] as const;
@@ -22,6 +24,10 @@ const FINANCIAL_FORECAST_KEY = (currency: string) =>
   ['analytics', 'financial-forecast', currency] as const;
 const SEASONAL_DEMAND_KEY = (months: number, currency: string) =>
   ['analytics', 'seasonal-demand', months, currency] as const;
+const TRANSACTION_INSIGHTS_KEY = (currency: string) =>
+  ['analytics', 'transaction-insights', currency] as const;
+const REVENUE_TREND_KEY = (months: number, currency: string) =>
+  ['analytics', 'revenue-trend', months, currency] as const;
 
 /**
  * Live platform activity counts for the BI Overview histogram.
@@ -101,6 +107,43 @@ export const useSeasonalDemand = (months = 12, currency = 'NGN') =>
       const res = await analyticsService.seasonalDemand(months, currency);
       if (!res.success || !res.data) {
         throw new Error(res.message ?? 'Failed to load seasonal demand');
+      }
+      return res.data;
+    },
+    refetchInterval: 5 * 60_000,
+    refetchIntervalInBackground: false,
+    staleTime: 60_000,
+  });
+
+/**
+ * Transaction insights for the Integration Insights page.
+ * Aggregate counts — 60s poll is plenty.
+ */
+export const useTransactionInsights = (currency = 'NGN') =>
+  useQuery<TransactionInsights>({
+    queryKey: TRANSACTION_INSIGHTS_KEY(currency),
+    queryFn: async () => {
+      const res = await analyticsService.transactionInsights(currency);
+      if (!res.success || !res.data) {
+        throw new Error(res.message ?? 'Failed to load transaction insights');
+      }
+      return res.data;
+    },
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
+    staleTime: 30_000,
+  });
+
+/**
+ * Revenue vs forecast line chart. Monthly buckets — 5 min poll.
+ */
+export const useRevenueTrend = (months = 6, currency = 'NGN') =>
+  useQuery<RevenueTrendPoint[]>({
+    queryKey: REVENUE_TREND_KEY(months, currency),
+    queryFn: async () => {
+      const res = await analyticsService.revenueTrend(months, currency);
+      if (!res.success || !res.data) {
+        throw new Error(res.message ?? 'Failed to load revenue trend');
       }
       return res.data;
     },
