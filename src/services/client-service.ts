@@ -189,6 +189,42 @@ export interface ResolveDisputePayload {
   admin_notes?: string;
 }
 
+export interface DisputeStats {
+  open: number;
+  under_review: number;
+  resolved_this_month: number;
+  avg_resolution_days: string;
+}
+
+export type DisputeTimelineKind =
+  | 'escrow_created'
+  | 'funded'
+  | 'delivery_confirmed'
+  | 'buyer_confirmed'
+  | 'dispute_raised'
+  | 'dispute_resolved';
+
+export interface DisputeTimelineEvent {
+  at: string;
+  kind: DisputeTimelineKind;
+  actor_id: string | null;
+  actor_name: string | null;
+  detail: string;
+}
+
+export interface DisputeDetail extends EscrowDispute {
+  escrow_amount: string | null;
+  escrow_currency: string | null;
+  escrow_reference: string | null;
+  escrow_item_title: string | null;
+  buyer_id: string | null;
+  buyer_name: string | null;
+  buyer_email: string | null;
+  seller_id: string | null;
+  seller_name: string | null;
+  seller_email: string | null;
+}
+
 // ---------------- Wallet service ----------------
 
 export const walletService = {
@@ -236,6 +272,25 @@ export const escrowService = {
     query: DisputeListQuery = {},
   ): Promise<PaginatedResponse<EscrowDispute>> => {
     const { data } = await clientApi.get('/escrow/disputes', { params: query });
+    return data;
+  },
+
+  getDisputeStats: async (): Promise<ApiResponse<DisputeStats>> => {
+    const { data } = await clientApi.get('/escrow/disputes/stats');
+    return data;
+  },
+
+  getDisputeTimeline: async (
+    disputeId: string,
+  ): Promise<ApiResponse<DisputeTimelineEvent[]>> => {
+    const { data } = await clientApi.get(`/escrow/disputes/${disputeId}/timeline`);
+    return data;
+  },
+
+  getDisputeById: async (
+    disputeId: string,
+  ): Promise<ApiResponse<DisputeDetail>> => {
+    const { data } = await clientApi.get(`/escrow/disputes/${disputeId}`);
     return data;
   },
 
