@@ -1,21 +1,36 @@
 import type { FC } from 'react';
 import { useNavigate } from 'react-router';
-import { AlertTriangle, Activity, ArrowLeftRight } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { AlertTriangle, Activity, ArrowLeftRight, Loader2 } from 'lucide-react';
 import StatCard from '@/components/shared/StatCard';
-
-const disputes = [
-  { id: '#DPOQ22332', buyer: 'John Mensah', seller: 'Kwame Electronics', amount: 'GHS 2,450.00', status: 'Open', date: 'Mar 24, 2026' },
-  { id: '#DPOQ22333', buyer: 'Ama Serwaa', seller: 'TechHub GH', amount: 'GHS 1,200.00', status: 'Resolved', date: 'Mar 22, 2026' },
-  { id: '#DPOQ22334', buyer: 'Kofi Asante', seller: 'PhoneCity', amount: 'GHS 3,100.00', status: 'Open', date: 'Mar 20, 2026' },
-];
+import disputeService from '@/services/dispute-service';
+import { cn } from '@/lib/utils';
 
 const statusStyle: Record<string, string> = {
-  Open: 'text-[#F59E0B] bg-[#FEF3C7]',
-  Resolved: 'text-brand-green bg-brand-green/10',
+  open: 'text-[#F59E0B] bg-[#FEF3C7]',
+  under_review: 'text-[#3B82F6] bg-[#DBEAFE]',
+  resolved_refund: 'text-brand-green bg-brand-green/10',
+  resolved_release: 'text-brand-green bg-brand-green/10',
+  closed: 'text-gray-600 bg-gray-100',
 };
+
+const formatStatus = (status: string) => status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
 
 const DisputesPage: FC = () => {
   const navigate = useNavigate();
+
+  const { data: statsRes, isLoading: loadingStats } = useQuery({
+    queryKey: ['dispute-stats'],
+    queryFn: () => disputeService.getDisputeStats(),
+  });
+
+  const { data: disputesRes, isLoading: loadingDisputes } = useQuery({
+    queryKey: ['disputes'],
+    queryFn: () => disputeService.listDisputes({ limit: 50 }),
+  });
+
+  const stats = statsRes?.data || { open: 0, underReview: 0, resolvedThisMonth: 0, avgResolutionDays: '0.0' };
+  const disputes = disputesRes?.data || [];
 
   return (
     <div>
@@ -30,36 +45,36 @@ const DisputesPage: FC = () => {
       <div className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
         <StatCard
           icon={<AlertTriangle size={20} className="text-white" />}
-          value="24"
-          label="Open disputes"
-          change="+4.8%"
-          trend="up"
+          value={loadingStats ? "..." : (stats.open + stats.underReview).toString()}
+          label="Open & Under Review disputes"
+          change=""
+          trend="neutral"
         />
         <StatCard
           icon={<Activity size={20} className="text-white" />}
-          value="156"
+          value={loadingStats ? "..." : stats.resolvedThisMonth.toString()}
           label="Resolved this month"
-          change="+11.2%"
-          trend="up"
+          change=""
+          trend="neutral"
         />
         <StatCard
           icon={<ArrowLeftRight size={20} className="text-white" />}
-          value="1.2 days"
+          value={loadingStats ? "..." : `${stats.avgResolutionDays} days`}
           label="Average resolution time"
-          change="+6.7%"
-          trend="up"
+          change=""
+          trend="neutral"
         />
       </div>
 
       {/* Disputes Table */}
       <div className="rounded-2xl border border-gray-200 bg-white">
-        <div className="border-b border-gray-100 px-6 py-5">
+        <div className="border-b border-gray-100 px-6 py-5 flex items-center justify-between">
           <h2 className="text-lg font-bold text-gray-900">Recent Disputes</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-100">
+              <tr className="border-b border-gray-100 bg-gray-50/50">
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Dispute ID</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Buyer</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Seller</th>
@@ -69,24 +84,48 @@ const DisputesPage: FC = () => {
               </tr>
             </thead>
             <tbody>
-              {disputes.map((d, i) => (
-                <tr
-                  key={i}
-                  className="cursor-pointer border-b border-gray-50 transition-colors hover:bg-gray-50 last:border-b-0"
-                  onClick={() => navigate(`/disputes/${d.id.replace('#', '')}`)}
-                >
-                  <td className="px-6 py-5 text-sm font-medium text-brand-green">{d.id}</td>
-                  <td className="px-6 py-5 text-sm text-gray-700">{d.buyer}</td>
-                  <td className="px-6 py-5 text-sm text-gray-700">{d.seller}</td>
-                  <td className="px-6 py-5 text-sm text-gray-700">{d.amount}</td>
-                  <td className="px-6 py-5 text-sm text-gray-700">{d.date}</td>
-                  <td className="px-6 py-5">
-                    <span className={`inline-block rounded-full px-3 py-1 text-xs font-medium ${statusStyle[d.status]}`}>
-                      {d.status}
-                    </span>
+              {loadingDisputes ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center text-sm text-gray-500">
+                    <Loader2 className="mx-auto h-6 w-6 animate-spin text-gray-400 mb-2" />
+                    Loading disputes...
                   </td>
                 </tr>
-              ))}
+              ) : disputes.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center text-sm text-gray-500">
+                    No disputes found.
+                  </td>
+                </tr>
+              ) : (
+                disputes.map((d) => (
+                  <tr
+                    key={d.id}
+                    className="cursor-pointer border-b border-gray-50 transition-colors hover:bg-gray-50 last:border-b-0"
+                    onClick={() => navigate(`/disputes/${d.id}`)}
+                  >
+                    <td className="px-6 py-5 text-sm font-medium text-brand-green uppercase">
+                      #{d.id.split('-')[0]}
+                    </td>
+                    <td className="px-6 py-5 text-sm text-gray-700">{d.buyer_name || 'Unknown'}</td>
+                    <td className="px-6 py-5 text-sm text-gray-700">{d.seller_name || 'Unknown'}</td>
+                    <td className="px-6 py-5 text-sm font-medium text-gray-900">
+                      {d.escrow_currency} {d.escrow_amount}
+                    </td>
+                    <td className="px-6 py-5 text-sm text-gray-500">
+                      {new Date(d.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-5">
+                      <span className={cn(
+                        'inline-block rounded-full px-3 py-1 text-xs font-medium',
+                        statusStyle[d.status] || 'text-gray-600 bg-gray-100'
+                      )}>
+                        {formatStatus(d.status)}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

@@ -63,7 +63,24 @@ export interface DisputeTimelineEvent {
   detail: string;
 }
 
+export interface DisputeStats {
+  open: number;
+  underReview: number;
+  resolvedThisMonth: number;
+  avgResolutionDays: string;
+}
+
 const disputeService = {
+  listDisputes: async (params?: { page?: number; limit?: number; status?: string }): Promise<PaginatedResponse<DisputeDetail>> => {
+    const { data } = await apiClient.get<PaginatedResponse<DisputeDetail>>('/escrow/disputes', { params });
+    return data;
+  },
+
+  getDisputeStats: async (): Promise<ApiResponse<DisputeStats>> => {
+    const { data } = await apiClient.get<ApiResponse<DisputeStats>>('/escrow/disputes/stats');
+    return data;
+  },
+
   getDispute: async (id: string): Promise<ApiResponse<DisputeDetail>> => {
     const { data } = await apiClient.get<ApiResponse<DisputeDetail>>(`/escrow/disputes/${id}`);
     return data;
