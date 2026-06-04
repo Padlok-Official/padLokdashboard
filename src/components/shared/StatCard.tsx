@@ -7,7 +7,7 @@ interface StatCardProps {
   value: string;
   label: string;
   change: string;
-  trend: 'up' | 'down';
+  trend: 'up' | 'down' | 'neutral';
 }
 
 const StatCard: FC<StatCardProps> = ({ icon, value, label, change, trend }) => {
@@ -17,15 +17,17 @@ const StatCard: FC<StatCardProps> = ({ icon, value, label, change, trend }) => {
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#020036]">
           {icon}
         </div>
-        <div
-          className={cn(
-            'flex items-center gap-1 text-xs font-medium',
-            trend === 'up' ? 'text-brand-green' : 'text-[#F44336]',
-          )}
-        >
-          {trend === 'up' ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-          {change}
-        </div>
+        {trend !== 'neutral' && (
+          <div
+            className={cn(
+              'flex items-center gap-1 text-xs font-medium',
+              trend === 'up' ? 'text-brand-green' : 'text-[#F44336]',
+            )}
+          >
+            {trend === 'up' ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+            {change}
+          </div>
+        )}
       </div>
       <div className="mt-4">
         <p className="text-2xl font-bold text-gray-900">{value}</p>

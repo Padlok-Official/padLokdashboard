@@ -45,14 +45,14 @@ const DisputesPage: FC = () => {
       <div className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
         <StatCard
           icon={<AlertTriangle size={20} className="text-white" />}
-          value={loadingStats ? "..." : (stats.open + stats.underReview).toString()}
+          value={loadingStats ? "..." : (stats.open + stats.underReview)?.toString()}
           label="Open & Under Review disputes"
           change=""
           trend="neutral"
         />
         <StatCard
           icon={<Activity size={20} className="text-white" />}
-          value={loadingStats ? "..." : stats.resolvedThisMonth.toString()}
+          value={loadingStats ? "..." : stats.resolvedThisMonth?.toString()}
           label="Resolved this month"
           change=""
           trend="neutral"
