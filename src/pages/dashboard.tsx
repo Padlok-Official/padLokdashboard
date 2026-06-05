@@ -42,21 +42,18 @@ const formatNumber = (val: number) => {
  */
 const currencyPrefix = (code: string | undefined): string => {
   switch (code) {
-    case 'NGN':
-      return '₦';
     case 'USD':
       return '$';
     case 'GHS':
-      return 'GH₵';
     default:
-      return '¢';
+      return 'GH₵';
   }
 };
 
 /**
  * Compact currency formatter for stat card values. We don't want
- * "₦389,200.00" squeezed into a narrow card — scaling to "₦389.2k" /
- * "₦1.4M" keeps things scannable. Exact values are in the tooltip.
+ * "GH₵389,200.00" squeezed into a narrow card — scaling to "GH₵389.2k" /
+ * "GH₵1.4M" keeps things scannable. Exact values are in the tooltip.
  */
 const formatCurrencyCompact = (value: number, code: string | undefined): string => {
   const prefix = currencyPrefix(code);

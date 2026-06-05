@@ -45,7 +45,7 @@ export const usePlatformActivity = (options?: { refetchIntervalMs?: number }) =>
  * keeps the Supabase free tier happy.
  */
 export const useFinancialSummary = (
-  currency = 'NGN',
+  currency = 'GHS',
   options?: { refetchIntervalMs?: number },
 ) => {
   const refetchInterval = options?.refetchIntervalMs ?? 30_000;

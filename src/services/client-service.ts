@@ -204,7 +204,7 @@ export const walletService = {
     return data;
   },
 
-  getStats: async (currency = 'NGN'): Promise<ApiResponse<WalletStats>> => {
+  getStats: async (currency = 'GHS'): Promise<ApiResponse<WalletStats>> => {
     const { data } = await clientApi.get('/wallet/stats', { params: { currency } });
     return data;
   },
@@ -227,7 +227,7 @@ export const escrowService = {
     return data;
   },
 
-  getStats: async (currency = 'NGN'): Promise<ApiResponse<EscrowStats>> => {
+  getStats: async (currency = 'GHS'): Promise<ApiResponse<EscrowStats>> => {
     const { data } = await clientApi.get('/escrow/stats', { params: { currency } });
     return data;
   },

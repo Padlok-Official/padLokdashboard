@@ -34,13 +34,13 @@ const WalletEscrowPage: FC = () => {
   });
 
   const escrowStatsQuery = useQuery({
-    queryKey: ['escrow', 'stats', 'NGN'],
-    queryFn: () => escrowService.getStats('NGN'),
+    queryKey: ['escrow', 'stats', 'GHS'],
+    queryFn: () => escrowService.getStats('GHS'),
   });
 
   const walletStatsQuery = useQuery({
-    queryKey: ['wallet', 'stats', 'NGN'],
-    queryFn: () => walletService.getStats('NGN'),
+    queryKey: ['wallet', 'stats', 'GHS'],
+    queryFn: () => walletService.getStats('GHS'),
   });
 
   const isLoading =
@@ -54,7 +54,7 @@ const WalletEscrowPage: FC = () => {
   const escrowStats = escrowStatsQuery.data?.data;
   const walletStats = walletStatsQuery.data?.data;
 
-  const currency = transactions[0]?.currency ?? 'NGN';
+  const currency = transactions[0]?.currency ?? 'GHS';
   const totalInEscrow = Number(escrowStats?.total_in_escrow ?? 0);
   const totalReleased = Number(escrowStats?.total_released ?? 0);
   const fundingPerHour = walletStats?.funding_per_hour ?? '0';

@@ -39,7 +39,7 @@ const analyticsService = {
   },
 
   financialSummary: async (
-    currency = 'NGN',
+    currency = 'GHS',
   ): Promise<ApiResponse<FinancialSummary>> => {
     const { data } = await apiClient.get<ApiResponse<FinancialSummaryApi>>(
       '/analytics/financial-summary',

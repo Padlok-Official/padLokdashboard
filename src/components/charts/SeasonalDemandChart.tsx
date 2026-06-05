@@ -35,7 +35,7 @@ const CustomTooltip: FC<CustomTooltipProps> = ({ active, payload }) => {
       <div className="rounded-lg bg-brand-deep-navy px-3 py-2 text-white shadow-lg">
         <p className="text-[10px] text-gray-300">Forecast:</p>
         <p className="text-sm font-semibold">
-          ¢{payload[0].value.toLocaleString()}
+          GH₵{payload[0].value.toLocaleString()}
         </p>
       </div>
     );
