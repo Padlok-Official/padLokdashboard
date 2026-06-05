@@ -1,4 +1,5 @@
 import type { FC } from 'react';
+import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { DollarSign, Activity, ArrowLeftRight } from 'lucide-react';
 import StatCard from '@/components/shared/StatCard';
@@ -28,6 +29,8 @@ const statusColor: Record<WalletTxStatus, string> = {
 };
 
 const WalletEscrowPage: FC = () => {
+  const navigate = useNavigate();
+
   const transactionsQuery = useQuery({
     queryKey: ['wallet', 'transactions', { page: 1, limit: 50 }],
     queryFn: () => walletService.getTransactionHistory({ page: 1, limit: 50 }),
@@ -133,8 +136,12 @@ const WalletEscrowPage: FC = () => {
                 </tr>
               ) : (
                 transactions.map((tx) => (
-                  <tr key={tx.id} className="border-b border-gray-50 last:border-b-0">
-                    <td className="px-6 py-5 text-sm text-gray-700">
+                  <tr
+                    key={tx.id}
+                    className="cursor-pointer border-b border-gray-50 transition-colors hover:bg-gray-50 last:border-b-0"
+                    onClick={() => navigate(`/wallet-escrow/${tx.id}`)}
+                  >
+                    <td className="px-6 py-5 text-sm font-medium text-brand-green">
                       #{tx.reference ?? tx.id.slice(0, 10).toUpperCase()}
                     </td>
                     <td className="px-6 py-5 text-sm text-gray-700">

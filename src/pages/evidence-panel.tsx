@@ -5,7 +5,24 @@ import { ArrowLeft, ChevronDown, ChevronUp, Phone, Mail, Bell, Send, Loader2 } f
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import disputeService from '@/services/dispute-service';
+import { escrowService } from '@/services/client-service';
 
+
+const escrowStatusStyle: Record<string, string> = {
+  initiated: 'bg-gray-100 text-gray-700',
+  funded: 'bg-blue-100 text-blue-700',
+  delivery_confirmed: 'bg-indigo-100 text-indigo-700',
+  completed: 'bg-brand-green/10 text-brand-green',
+  disputed: 'bg-red-100 text-red-700',
+  refunded: 'bg-amber-100 text-amber-700',
+  cancelled: 'bg-gray-100 text-gray-500',
+};
+
+const formatLabel = (value: string) =>
+  value.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+
+const formatDateTime = (value: string | null | undefined) =>
+  value ? new Date(value).toLocaleString() : '—';
 
 const toDisplayImageUrl = (url: string): string => {
   const marker = '/image/upload/';
@@ -180,6 +197,16 @@ const EvidencePanelPage: FC = () => {
 
   const dispute = disputeRes?.data;
   const timeline = timelineRes?.data || [];
+
+  // Pull the full escrow transaction behind this dispute so admins can review
+  // the item details and the seller-submitted item photos alongside the
+  // dispute evidence. Keyed off the dispute's escrow_transaction_id.
+  const { data: escrowRes, isLoading: loadingEscrow } = useQuery({
+    queryKey: ['escrow', dispute?.escrow_transaction_id],
+    queryFn: () => escrowService.getEscrowById(dispute!.escrow_transaction_id),
+    enabled: !!dispute?.escrow_transaction_id,
+  });
+  const escrow = escrowRes?.data;
 
   const payoutMutation = useMutation({
     mutationFn: (noteStr: string) => disputeService.payoutDispute(disputeId!, noteStr),
@@ -494,6 +521,114 @@ const EvidencePanelPage: FC = () => {
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* Escrow Transaction Details */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-base font-bold text-gray-900">Escrow Transaction Details</h2>
+              {escrow && (
+                <span className={cn(
+                  'rounded-md px-2 py-1 text-xs font-semibold uppercase',
+                  escrowStatusStyle[escrow.status] || 'bg-gray-100 text-gray-700'
+                )}>
+                  {formatLabel(escrow.status)}
+                </span>
+              )}
+            </div>
+
+            {loadingEscrow ? (
+              <div className="flex justify-center p-4">
+                <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+              </div>
+            ) : !escrow ? (
+              <p className="text-sm text-gray-500">Escrow transaction details are unavailable.</p>
+            ) : (
+              <>
+                {escrow.item_title && (
+                  <div className="mb-4">
+                    <p className="text-xs text-gray-500">Item</p>
+                    <p className="text-sm font-semibold text-gray-900">{escrow.item_title}</p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                  <div>
+                    <p className="text-xs text-gray-500">Reference</p>
+                    <p className="text-sm font-semibold text-gray-900 break-all">{escrow.reference || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Amount</p>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {escrow.currency} {Number(escrow.amount).toFixed(2)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Fee</p>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {escrow.currency} {Number(escrow.fee ?? 0).toFixed(2)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Delivery Window</p>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {escrow.delivery_window ? formatLabel(escrow.delivery_window) : '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Delivery Deadline</p>
+                    <p className="text-sm font-semibold text-gray-900">{formatDateTime(escrow.delivery_deadline)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Created</p>
+                    <p className="text-sm font-semibold text-gray-900">{formatDateTime(escrow.created_at)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Delivery Confirmed</p>
+                    <p className="text-sm font-semibold text-gray-900">{formatDateTime(escrow.delivery_confirmed_at)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Buyer Confirmed</p>
+                    <p className="text-sm font-semibold text-gray-900">{formatDateTime(escrow.buyer_confirmed_at)}</p>
+                  </div>
+                </div>
+
+                {escrow.item_description && (
+                  <div className="mt-4">
+                    <p className="mb-1 text-xs text-gray-500">Item Description</p>
+                    <p className="rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm text-gray-800">
+                      {escrow.item_description}
+                    </p>
+                  </div>
+                )}
+
+                <div className="mt-4">
+                  <p className="mb-2 text-xs text-gray-500">Item Photos</p>
+                  {escrow.item_photos && escrow.item_photos.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                      {escrow.item_photos.map((url, i) => (
+                        <a
+                          key={i}
+                          href={toDisplayImageUrl(url)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="group relative block aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-50"
+                        >
+                          <img
+                            src={toDisplayImageUrl(url)}
+                            alt={`Item ${i + 1}`}
+                            loading="lazy"
+                            className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">No item photos were provided for this transaction.</p>
+                  )}
+                </div>
+              </>
+            )}
           </div>
 
           {/* Submitted Evidence */}
