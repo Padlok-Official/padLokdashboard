@@ -19,17 +19,17 @@ const formatStatus = (status: string) => status.replace('_', ' ').replace(/\b\w/
 const DisputesPage: FC = () => {
   const navigate = useNavigate();
 
-  const { data: statsRes, isLoading: loadingStats } = useQuery({
-    queryKey: ['dispute-stats'],
-    queryFn: () => disputeService.getDisputeStats(),
-  });
+  // const { data: statsRes, isLoading: loadingStats } = useQuery({
+  //   queryKey: ['dispute-stats'],
+  //   queryFn: () => disputeService.getDisputeStats(),
+  // });
 
   const { data: disputesRes, isLoading: loadingDisputes } = useQuery({
     queryKey: ['disputes'],
     queryFn: () => disputeService.listDisputes({ limit: 50 }),
   });
 
-  const stats = statsRes?.data || { open: 0, underReview: 0, resolvedThisMonth: 0, avgResolutionDays: '0.0' };
+
   const disputes = disputesRes?.data || [];
 
   return (
@@ -41,32 +41,6 @@ const DisputesPage: FC = () => {
         </p>
       </div>
 
-      {/* Stat Cards */}
-      <div className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-        <StatCard
-          icon={<AlertTriangle size={20} className="text-white" />}
-          value={loadingStats ? "..." : (stats.open + stats.underReview)?.toString()}
-          label="Open & Under Review disputes"
-          change=""
-          trend="neutral"
-        />
-        <StatCard
-          icon={<Activity size={20} className="text-white" />}
-          value={loadingStats ? "..." : stats.resolvedThisMonth?.toString()}
-          label="Resolved this month"
-          change=""
-          trend="neutral"
-        />
-        <StatCard
-          icon={<ArrowLeftRight size={20} className="text-white" />}
-          value={loadingStats ? "..." : `${stats.avgResolutionDays} days`}
-          label="Average resolution time"
-          change=""
-          trend="neutral"
-        />
-      </div>
-
-      {/* Disputes Table */}
       <div className="rounded-2xl border border-gray-200 bg-white">
         <div className="border-b border-gray-100 px-6 py-5 flex items-center justify-between">
           <h2 className="text-lg font-bold text-gray-900">Recent Disputes</h2>
@@ -110,10 +84,10 @@ const DisputesPage: FC = () => {
                     <td className="px-6 py-5 text-sm text-gray-700">{d.buyer_name || 'Unknown'}</td>
                     <td className="px-6 py-5 text-sm text-gray-700">{d.seller_name || 'Unknown'}</td>
                     <td className="px-6 py-5 text-sm font-medium text-gray-900">
-                      {d.escrow_currency} {d.escrow_amount}
+                      {d.escrow_currency} {Number(d.escrow_amount).toFixed(2)}
                     </td>
                     <td className="px-6 py-5 text-sm text-gray-500">
-                      {new Date(d.created_at).toLocaleDateString()}
+                      {new Date(d.created_at)?.toLocaleDateString()}
                     </td>
                     <td className="px-6 py-5">
                       <span className={cn(
