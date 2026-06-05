@@ -6,6 +6,16 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import disputeService from '@/services/dispute-service';
 
+
+const toDisplayImageUrl = (url: string): string => {
+  const marker = '/image/upload/';
+  const idx = url.indexOf(marker);
+  if (idx === -1) return url;
+  const after = url.slice(idx + marker.length);
+  if (after.startsWith('f_auto') || /^[^/]*\bf_/.test(after)) return url;
+  return `${url.slice(0, idx + marker.length)}f_auto,q_auto/${after}`;
+};
+
 interface ContactPanelProps {
   label: string;
   contact: {
@@ -278,9 +288,9 @@ const EvidencePanelPage: FC = () => {
               Release <span className="font-semibold">{dispute.escrow_currency} {dispute.escrow_amount}</span> from escrow to{' '}
               <span className="font-semibold">{sellerContact.name}</span>?
             </p>
-            <input 
-              type="text" 
-              placeholder="Admin Notes (optional)" 
+            <input
+              type="text"
+              placeholder="Admin Notes (optional)"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               className="w-full mt-4 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs outline-none focus:border-brand-green"
@@ -319,9 +329,9 @@ const EvidencePanelPage: FC = () => {
               Refund <span className="font-semibold">{dispute.escrow_currency} {dispute.escrow_amount}</span> from escrow to{' '}
               <span className="font-semibold">{buyerContact.name}</span>?
             </p>
-            <input 
-              type="text" 
-              placeholder="Admin Notes (optional)" 
+            <input
+              type="text"
+              placeholder="Admin Notes (optional)"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               className="w-full mt-4 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs outline-none focus:border-brand-green"
@@ -359,9 +369,9 @@ const EvidencePanelPage: FC = () => {
             <p className="mt-2 text-sm text-gray-600">
               Mark this dispute for escalation or internal review.
             </p>
-            <input 
-              type="text" 
-              placeholder="Flag Reason" 
+            <input
+              type="text"
+              placeholder="Flag Reason"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               className="w-full mt-4 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs outline-none focus:border-brand-green"
@@ -398,9 +408,9 @@ const EvidencePanelPage: FC = () => {
             <p className="mt-2 text-sm text-gray-600">
               Apply a critical strike to the user who raised this dispute.
             </p>
-            <input 
-              type="text" 
-              placeholder="Penalty Reason" 
+            <input
+              type="text"
+              placeholder="Penalty Reason"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               className="w-full mt-4 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs outline-none focus:border-brand-green"
@@ -460,7 +470,7 @@ const EvidencePanelPage: FC = () => {
               <div>
                 <p className="text-xs text-gray-500">Escrow Amount</p>
                 <p className="text-lg font-bold text-gray-900">
-                  {dispute.escrow_currency} {dispute.escrow_amount}
+                  {dispute.escrow_currency} {Number(dispute.escrow_amount).toFixed(2)}
                 </p>
               </div>
               <div>
@@ -484,6 +494,33 @@ const EvidencePanelPage: FC = () => {
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* Submitted Evidence */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-6">
+            <h2 className="mb-4 text-base font-bold text-gray-900">Submitted Evidence</h2>
+            {dispute.evidence_photos && dispute.evidence_photos.length > 0 ? (
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                {dispute.evidence_photos.map((url, i) => (
+                  <a
+                    key={i}
+                    href={toDisplayImageUrl(url)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group relative block aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-50"
+                  >
+                    <img
+                      src={toDisplayImageUrl(url)}
+                      alt={`Evidence ${i + 1}`}
+                      loading="lazy"
+                      className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                    />
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">No evidence was submitted for this dispute.</p>
+            )}
           </div>
 
           {/* Evidence Timeline */}
@@ -547,7 +584,7 @@ const EvidencePanelPage: FC = () => {
                 onToggle={() => setSellerOpen(!sellerOpen)}
                 disputeId={disputeId!}
               />
-              
+
               {!isResolved && (
                 <>
                   <button
@@ -570,8 +607,8 @@ const EvidencePanelPage: FC = () => {
                   </button>
                 </>
               )}
-              
-              <button 
+
+              <button
                 onClick={() => {
                   setNote('');
                   setShowPenalizeConfirm(true);
@@ -580,7 +617,7 @@ const EvidencePanelPage: FC = () => {
               >
                 Penalize User
               </button>
-              <button 
+              <button
                 onClick={() => {
                   setNote('');
                   setShowFlagConfirm(true);
