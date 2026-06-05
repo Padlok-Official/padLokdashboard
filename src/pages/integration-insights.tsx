@@ -2,20 +2,43 @@ import type { FC } from 'react';
 import { CircleDot, DollarSign, Activity, Zap } from 'lucide-react';
 import StatCard from '@/components/shared/StatCard';
 import RevenueChart from '@/components/charts/RevenueChart';
+import { useTransactionInsights, useRevenueTrend } from '@/hooks/useAnalytics';
+import { formatCurrency } from '@/lib/format-currency';
 
-interface InsightRow {
-  label: string;
-  value: string;
-}
+const CURRENCY = 'GHS';
 
-const walletInsights: InsightRow[] = [
-  { label: 'Daily Transactions', value: '1,850' },
-  { label: 'Avg Transaction Value', value: '¢24.35' },
-  { label: 'Failed Transactions', value: '1.2%' },
-  { label: 'Refund Rate', value: '0.8%' },
-];
+// Compact volume label, e.g. 45200 -> "45.2K".
+const formatCompact = (n: number): string =>
+  new Intl.NumberFormat('en-GH', { notation: 'compact', maximumFractionDigits: 1 }).format(n);
 
 const IntegrationInsightsPage: FC = () => {
+  const insightsQuery = useTransactionInsights(CURRENCY);
+  const revenueQuery = useRevenueTrend(CURRENCY, 6);
+
+  const insights = insightsQuery.data;
+  const loading = insightsQuery.isLoading;
+  const hasError = insightsQuery.isError || revenueQuery.isError;
+  const cur = insights?.currency ?? CURRENCY;
+
+  const walletInsights = [
+    {
+      label: 'Daily Transactions',
+      value: loading ? '—' : (insights?.dailyTransactions ?? 0).toLocaleString(),
+    },
+    {
+      label: 'Avg Transaction Value',
+      value: loading ? '—' : formatCurrency(insights?.avgTransactionValue ?? 0, cur),
+    },
+    {
+      label: 'Failed Transactions',
+      value: loading ? '—' : `${(insights?.failedRatePct ?? 0).toFixed(1)}%`,
+    },
+    {
+      label: 'Refund Rate',
+      value: loading ? '—' : `${(insights?.refundRatePct ?? 0).toFixed(1)}%`,
+    },
+  ];
+
   return (
     <div>
       {/* Page Header */}
@@ -28,44 +51,50 @@ const IntegrationInsightsPage: FC = () => {
         </p>
       </div>
 
+      {hasError && (
+        <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          Failed to load integration insights data. Showing what's available.
+        </div>
+      )}
+
       {/* Top Row — 3 Stat Cards */}
       <div className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
         <StatCard
           icon={<CircleDot size={20} className="text-white" />}
-          value="¢300.7"
+          value={loading ? '—' : formatCurrency(insights?.avgTransactionValue ?? 0, cur)}
           label="Avg Transaction Value"
-          change="+0.5%"
-          trend="up"
+          change="Completed txns"
+          trend="neutral"
         />
         <StatCard
           icon={<DollarSign size={20} className="text-white" />}
-          value="%1.85"
+          value={loading ? '—' : `${(insights?.failedRatePct ?? 0).toFixed(1)}%`}
           label="Failed Transactions"
-          change="+2.1%"
-          trend="up"
+          change="Of all txns"
+          trend="neutral"
         />
         <StatCard
           icon={<Activity size={20} className="text-white" />}
-          value="87.2%"
+          value={loading ? '—' : `${(insights?.refundRatePct ?? 0).toFixed(1)}%`}
           label="Refund Rate"
-          change="+3.8%"
-          trend="up"
+          change="Of all txns"
+          trend="neutral"
         />
       </div>
 
       {/* Bottom Row — Stat Card + Optimization Score | Wallet Insights */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-5">
-        {/* Left Column — Transaction Vol Card + Optimization Score */}
+        {/* Left Column — Transaction Vol Card + Revenue Chart */}
         <div className="space-y-5 lg:col-span-2">
           <StatCard
             icon={<Zap size={20} className="text-white" />}
-            value="45.2K"
+            value={loading ? '—' : formatCompact(insights?.transactionVolume ?? 0)}
             label="Transaction Vol"
-            change="+9.4%"
-            trend="up"
+            change="All currencies"
+            trend="neutral"
           />
 
-          <RevenueChart />
+          <RevenueChart data={revenueQuery.data} loading={revenueQuery.isLoading} />
         </div>
 
         {/* Right Column — Wallet Transaction Insights */}

@@ -2,8 +2,21 @@ import type { FC } from 'react';
 import { TrendingUp, CalendarDays, AlertTriangle } from 'lucide-react';
 import StatCard from '@/components/shared/StatCard';
 import SeasonalDemandChart from '@/components/charts/SeasonalDemandChart';
+import { useFinancialForecast, useSeasonalDemand } from '@/hooks/useAnalytics';
+import { formatCurrency } from '@/lib/format-currency';
+
+const CURRENCY = 'GHS';
 
 const FinancialForecastPage: FC = () => {
+  const forecastQuery = useFinancialForecast(CURRENCY);
+  const seasonalQuery = useSeasonalDemand(CURRENCY, 12);
+
+  const forecast = forecastQuery.data;
+  const growth = forecast?.projectedEscrowGrowth ?? 0;
+  const growthIsPositive = growth >= 0;
+
+  const hasError = forecastQuery.isError || seasonalQuery.isError;
+
   return (
     <div>
       {/* Page Header */}
@@ -16,33 +29,47 @@ const FinancialForecastPage: FC = () => {
         </p>
       </div>
 
+      {hasError && (
+        <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          Failed to load forecast data. Showing what's available.
+        </div>
+      )}
+
       {/* Stat Cards Row */}
       <div className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
         <StatCard
           icon={<TrendingUp size={20} className="text-white" />}
-          value="¢489.2k"
+          value={
+            forecastQuery.isLoading
+              ? '—'
+              : formatCurrency(forecast?.monthlyForecastedRevenue ?? 0, forecast?.currency ?? CURRENCY)
+          }
           label="Monthly Forecasted Revenue"
-          change="+ 6.1%"
-          trend="up"
+          change="Next month"
+          trend="neutral"
         />
         <StatCard
           icon={<CalendarDays size={20} className="text-white" />}
-          value="Q4 2025"
+          value={forecastQuery.isLoading ? '—' : forecast?.seasonalPeak.label ?? 'N/A'}
           label="Seasonal Peak"
-          change="High Demand"
-          trend="up"
+          change={forecast?.seasonalPeak.demand ?? ''}
+          trend={forecast?.seasonalPeak.demand === 'High Demand' ? 'up' : 'neutral'}
         />
         <StatCard
           icon={<AlertTriangle size={20} className="text-white" />}
-          value="¢32.5k"
+          value={
+            forecastQuery.isLoading
+              ? '—'
+              : formatCurrency(growth, forecast?.currency ?? CURRENCY)
+          }
           label="Projected Escrow Growth"
-          change="+3.2%"
-          trend="up"
+          change={`${growthIsPositive ? '+' : ''}${formatCurrency(growth, forecast?.currency ?? CURRENCY)}/mo`}
+          trend={growthIsPositive ? 'up' : 'down'}
         />
       </div>
 
       {/* Seasonal Demand Chart */}
-      <SeasonalDemandChart />
+      <SeasonalDemandChart data={seasonalQuery.data} loading={seasonalQuery.isLoading} />
     </div>
   );
 };

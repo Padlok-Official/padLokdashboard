@@ -1,4 +1,5 @@
 import type { FC } from 'react';
+import { Loader2 } from 'lucide-react';
 import {
   LineChart,
   Line,
@@ -9,22 +10,46 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
+import type { RevenueTrendPoint } from '@/services/analytics-service';
 
-const data = [
-  { month: 'Jan', Revenue: 38000, Forecast: 30000 },
-  { month: 'Feb', Revenue: 35000, Forecast: 38000 },
-  { month: 'Mar', Revenue: 42000, Forecast: 43000 },
-  { month: 'Apr', Revenue: 44000, Forecast: 42000 },
-  { month: 'Mai', Revenue: 48000, Forecast: 45000 },
-  { month: 'Jun', Revenue: 52000, Forecast: 50000 },
+interface RevenueChartProps {
+  data?: RevenueTrendPoint[];
+  loading?: boolean;
+}
+
+const MONTH_LABELS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
 ];
 
-const RevenueChart: FC = () => {
+// Turn a 'YYYY-MM' bucket into a short month label for the X axis.
+const toMonthLabel = (month: string): string => {
+  const m = Number(month.slice(5, 7));
+  return MONTH_LABELS[m - 1] ?? month;
+};
+
+const RevenueChart: FC<RevenueChartProps> = ({ data = [], loading }) => {
+  const chartData = data.map((d) => ({
+    month: toMonthLabel(d.month),
+    Revenue: Number(d.revenue) || 0,
+    Forecast: Number(d.forecast) || 0,
+  }));
+  const hasData = chartData.some((d) => d.Revenue > 0 || d.Forecast > 0);
+
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-6">
       <h3 className="mb-4 text-lg font-bold text-gray-900">Revenue vs Forecast</h3>
+      {loading ? (
+        <div className="flex h-[280px] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-brand-green" />
+        </div>
+      ) : !hasData ? (
+        <div className="flex h-[280px] items-center justify-center text-sm text-gray-500">
+          No revenue data available yet.
+        </div>
+      ) : (
       <ResponsiveContainer width="100%" height={280}>
-        <LineChart data={data}>
+        <LineChart data={chartData}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
           <XAxis
             dataKey="month"
@@ -67,6 +92,7 @@ const RevenueChart: FC = () => {
           />
         </LineChart>
       </ResponsiveContainer>
+      )}
     </div>
   );
 };

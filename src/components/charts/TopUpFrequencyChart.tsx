@@ -1,4 +1,5 @@
 import type { FC } from 'react';
+import { Loader2 } from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -9,22 +10,36 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
-const data = [
-  { amount: '¢1000+', value: 800 },
-  { amount: '¢500', value: 3500 },
-  { amount: '¢200', value: 2200 },
-  { amount: '¢100', value: 4500 },
-  { amount: '¢50', value: 1500 },
-];
+interface TopUpTier {
+  tier: string;
+  count: number;
+}
 
-const TopUpFrequencyChart: FC = () => {
+interface TopUpFrequencyChartProps {
+  data?: TopUpTier[];
+  loading?: boolean;
+}
+
+const TopUpFrequencyChart: FC<TopUpFrequencyChartProps> = ({ data = [], loading }) => {
+  const chartData = data.map((d) => ({ amount: `¢${d.tier}`, value: d.count }));
+  const hasData = chartData.some((d) => d.value > 0);
+
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-6">
       <h3 className="mb-6 text-lg font-bold text-gray-900">
         Top-Up Frequency by Amount
       </h3>
+      {loading ? (
+        <div className="flex h-[260px] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-brand-green" />
+        </div>
+      ) : !hasData ? (
+        <div className="flex h-[260px] items-center justify-center text-sm text-gray-500">
+          No top-up data available yet.
+        </div>
+      ) : (
       <ResponsiveContainer width="100%" height={260}>
-        <BarChart data={data} layout="vertical" barCategoryGap={12}>
+        <BarChart data={chartData} layout="vertical" barCategoryGap={12}>
           <CartesianGrid
             strokeDasharray="3 3"
             stroke="#f0f0f0"
@@ -60,6 +75,7 @@ const TopUpFrequencyChart: FC = () => {
           />
         </BarChart>
       </ResponsiveContainer>
+      )}
     </div>
   );
 };

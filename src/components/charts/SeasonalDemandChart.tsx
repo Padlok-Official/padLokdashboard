@@ -1,4 +1,5 @@
 import type { FC } from 'react';
+import { Loader2 } from 'lucide-react';
 import {
   AreaChart,
   Area,
@@ -8,21 +9,12 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import type { SeasonalDemandPoint } from '@/services/analytics-service';
 
-const data = [
-  { month: 'JAN', value: 2800 },
-  { month: 'FEB', value: 2500 },
-  { month: 'MAR', value: 3200 },
-  { month: 'APR', value: 3600 },
-  { month: 'MAY', value: 3800 },
-  { month: 'JUN', value: 3400 },
-  { month: 'JUL', value: 2200 },
-  { month: 'AUG', value: 3348 },
-  { month: 'SEP', value: 3100 },
-  { month: 'OCT', value: 2600 },
-  { month: 'NOV', value: 3000 },
-  { month: 'DEC', value: 3800 },
-];
+interface SeasonalDemandChartProps {
+  data?: SeasonalDemandPoint[];
+  loading?: boolean;
+}
 
 interface CustomTooltipProps {
   active?: boolean;
@@ -33,9 +25,9 @@ const CustomTooltip: FC<CustomTooltipProps> = ({ active, payload }) => {
   if (active && payload && payload.length) {
     return (
       <div className="rounded-lg bg-brand-deep-navy px-3 py-2 text-white shadow-lg">
-        <p className="text-[10px] text-gray-300">Forecast:</p>
+        <p className="text-[10px] text-gray-300">Escrow transactions:</p>
         <p className="text-sm font-semibold">
-          GH₵{payload[0].value.toLocaleString()}
+          {payload[0].value.toLocaleString()}
         </p>
       </div>
     );
@@ -43,14 +35,26 @@ const CustomTooltip: FC<CustomTooltipProps> = ({ active, payload }) => {
   return null;
 };
 
-const SeasonalDemandChart: FC = () => {
+const SeasonalDemandChart: FC<SeasonalDemandChartProps> = ({ data = [], loading }) => {
+  const chartData = data.map((d) => ({ month: d.short_label, value: d.value }));
+  const hasData = chartData.some((d) => d.value > 0);
+
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-6">
       <h3 className="mb-6 text-xl font-bold text-gray-900">
         Seasonal Demand Patterns
       </h3>
+      {loading ? (
+        <div className="flex h-[320px] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-brand-green" />
+        </div>
+      ) : !hasData ? (
+        <div className="flex h-[320px] items-center justify-center text-sm text-gray-500">
+          No demand data available yet.
+        </div>
+      ) : (
       <ResponsiveContainer width="100%" height={320}>
-        <AreaChart data={data}>
+        <AreaChart data={chartData}>
           <defs>
             <linearGradient id="demandGradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#2DB52D" stopOpacity={0.15} />
@@ -87,6 +91,7 @@ const SeasonalDemandChart: FC = () => {
           />
         </AreaChart>
       </ResponsiveContainer>
+      )}
     </div>
   );
 };

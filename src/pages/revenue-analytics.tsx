@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { DollarSign, Users, TriangleAlert } from 'lucide-react';
+import { DollarSign, Users, TriangleAlert, Loader2 } from 'lucide-react';
 import {
   LineChart,
   Line,
@@ -10,16 +10,10 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import StatCard from '@/components/shared/StatCard';
+import { useRevenueEfficiency, useWalletLoadingPatterns } from '@/hooks/useAnalytics';
+import { formatCurrency } from '@/lib/format-currency';
 
-const walletData = [
-  { day: 'Mon', value: 10 },
-  { day: 'Tue', value: 25 },
-  { day: 'Wed', value: 55 },
-  { day: 'Thu', value: 40 },
-  { day: 'Fri', value: 45 },
-  { day: 'Sat', value: 50 },
-  { day: 'Sun', value: 80 },
-];
+const CURRENCY = 'GHS';
 
 interface Strategy {
   title: string;
@@ -46,6 +40,20 @@ const strategies: Strategy[] = [
 ];
 
 const RevenueAnalyticsPage: FC = () => {
+  const efficiencyQuery = useRevenueEfficiency(CURRENCY);
+  const loadingQuery = useWalletLoadingPatterns(CURRENCY, 7);
+
+  const efficiency = efficiencyQuery.data;
+  const loading = efficiencyQuery.isLoading;
+  const cur = efficiency?.currency ?? CURRENCY;
+  const hasError = efficiencyQuery.isError || loadingQuery.isError;
+
+  const walletData = (loadingQuery.data ?? []).map((d) => ({
+    day: d.day_label,
+    value: Number(d.amount) || 0,
+  }));
+  const hasWalletData = walletData.some((d) => d.value > 0);
+
   return (
     <div>
       {/* Page Header */}
@@ -58,28 +66,34 @@ const RevenueAnalyticsPage: FC = () => {
         </p>
       </div>
 
+      {hasError && (
+        <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          Failed to load revenue analytics data. Showing what's available.
+        </div>
+      )}
+
       {/* Top Row — 3 Stat Cards */}
       <div className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
         <StatCard
           icon={<DollarSign size={20} className="text-white" />}
-          value="¢1.92/km"
+          value={loading ? '—' : `${formatCurrency(efficiency?.revenuePerTransaction ?? 0, cur)}/txn`}
           label="Revenue/Transaction"
-          change="+3.5%"
-          trend="up"
+          change="Last 30 days"
+          trend="neutral"
         />
         <StatCard
           icon={<Users size={20} className="text-white" />}
-          value="99.2%"
+          value={loading ? '—' : `${(efficiency?.serviceAvailabilityPct ?? 0).toFixed(1)}%`}
           label="Service Availability"
-          change="+0.8%"
-          trend="up"
+          change="Completed rate"
+          trend="neutral"
         />
         <StatCard
           icon={<TriangleAlert size={20} className="text-white" />}
-          value="94.5%"
+          value={loading ? '—' : `${(efficiency?.pricingEfficiencyPct ?? 0).toFixed(1)}%`}
           label="Pricing Efficiency"
-          change="+ 12%"
-          trend="up"
+          change="Last 30 days"
+          trend="neutral"
         />
       </div>
 
@@ -91,6 +105,15 @@ const RevenueAnalyticsPage: FC = () => {
             Wallet Loading Patterns
           </h3>
           <div className="h-64">
+            {loadingQuery.isLoading ? (
+              <div className="flex h-full items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-brand-green" />
+              </div>
+            ) : !hasWalletData ? (
+              <div className="flex h-full items-center justify-center text-sm text-gray-500">
+                No wallet loading data available yet.
+              </div>
+            ) : (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={walletData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -104,8 +127,10 @@ const RevenueAnalyticsPage: FC = () => {
                   axisLine={false}
                   tickLine={false}
                   tick={{ fontSize: 12, fill: '#9ca3af' }}
+                  tickFormatter={(v) => (v >= 1000 ? `${v / 1000}k` : `${v}`)}
                 />
                 <Tooltip
+                  formatter={(v: number) => [formatCurrency(v, cur), 'Loaded']}
                   contentStyle={{
                     backgroundColor: '#1f2937',
                     border: 'none',
@@ -123,6 +148,7 @@ const RevenueAnalyticsPage: FC = () => {
                 />
               </LineChart>
             </ResponsiveContainer>
+            )}
           </div>
         </div>
 

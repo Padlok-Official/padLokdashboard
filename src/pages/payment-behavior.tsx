@@ -3,6 +3,10 @@ import { DollarSign, Activity, ArrowLeftRight } from 'lucide-react';
 import StatCard from '@/components/shared/StatCard';
 import TopUpFrequencyChart from '@/components/charts/TopUpFrequencyChart';
 import WalletBalanceTrendChart from '@/components/charts/WalletBalanceTrendChart';
+import { usePaymentBehavior, useWalletBalanceTrend } from '@/hooks/useAnalytics';
+import { formatCurrency } from '@/lib/format-currency';
+
+const CURRENCY = 'GHS';
 
 interface PromoRecommendation {
   title: string;
@@ -29,6 +33,12 @@ const recommendations: PromoRecommendation[] = [
 ];
 
 const PaymentBehaviorPage: FC = () => {
+  const behaviorQuery = usePaymentBehavior(CURRENCY);
+  const balanceTrendQuery = useWalletBalanceTrend(CURRENCY, 7);
+
+  const behavior = behaviorQuery.data;
+  const hasError = behaviorQuery.isError || balanceTrendQuery.isError;
+
   return (
     <div>
       {/* Page Header */}
@@ -41,35 +51,45 @@ const PaymentBehaviorPage: FC = () => {
         </p>
       </div>
 
+      {hasError && (
+        <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          Failed to load payment behavior data. Showing what's available.
+        </div>
+      )}
+
       {/* Stat Cards Row */}
       <div className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
         <StatCard
           icon={<DollarSign size={20} className="text-white" />}
-          value="¢52.30"
+          value={
+            behaviorQuery.isLoading
+              ? '—'
+              : formatCurrency(behavior?.avgTopupAmount ?? 0, behavior?.currency ?? CURRENCY)
+          }
           label="Avg Top-Up Amount"
-          change="+4.8%"
-          trend="up"
+          change="Completed top-ups"
+          trend="neutral"
         />
         <StatCard
           icon={<Activity size={20} className="text-white" />}
-          value="2.3/hour"
+          value={behaviorQuery.isLoading ? '—' : `${behavior?.topupPerHour ?? 0}/hour`}
           label="Top-Up Frequency"
-          change="+11.2%"
-          trend="up"
+          change="Last hour"
+          trend="neutral"
         />
         <StatCard
           icon={<ArrowLeftRight size={20} className="text-white" />}
-          value="34.5%"
+          value={behaviorQuery.isLoading ? '—' : `${(behavior?.promoRedemptionPct ?? 0).toFixed(1)}%`}
           label="Promo Redemption"
-          change="+6.7%"
-          trend="up"
+          change="Not yet tracked"
+          trend="neutral"
         />
       </div>
 
       {/* Charts Row */}
       <div className="mb-6 grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <TopUpFrequencyChart />
-        <WalletBalanceTrendChart />
+        <TopUpFrequencyChart data={behavior?.topupByTier} loading={behaviorQuery.isLoading} />
+        <WalletBalanceTrendChart data={balanceTrendQuery.data} loading={balanceTrendQuery.isLoading} />
       </div>
 
       {/* Promotional Strategy Recommendations */}
