@@ -1,8 +1,7 @@
 import type { FC } from 'react';
 import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, Activity, ArrowLeftRight, Loader2 } from 'lucide-react';
-import StatCard from '@/components/shared/StatCard';
+import { Loader2 } from 'lucide-react';
 import disputeService from '@/services/dispute-service';
 import { cn } from '@/lib/utils';
 
