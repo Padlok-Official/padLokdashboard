@@ -19,6 +19,12 @@ export interface FinancialSummaryApi {
   in_escrow_balance: string;
   transaction_fees: string;
   currency: string;
+  escrow_reconciliation?: {
+    active_escrow: string;
+    wallet_ledger: string;
+    drift: string;
+    reconciled: boolean;
+  };
   generated_at: string;
 }
 
@@ -27,6 +33,12 @@ export interface FinancialSummary {
   inEscrowBalance: number;
   transactionFees: number;
   currency: string;
+  escrowReconciliation?: {
+    activeEscrow: number;
+    walletLedger: number;
+    drift: number;
+    reconciled: boolean;
+  };
   generatedAt: string;
 }
 
@@ -34,11 +46,88 @@ export interface FinancialSummary {
  * Forecast stat-card values for the Financial Forecasting page. Backend
  * returns decimals as strings; the frontend parses them once here.
  */
+export interface SeasonalPeakApi {
+  peak_day: string;
+  peak_day_short: string;
+  peak_time_window: string;
+  peak_hour: number;
+  label: string;
+  demand_level: 'Unknown' | 'Even' | 'Moderate' | 'High';
+  demand_phrase: string;
+  trend: 'up' | 'down' | 'flat';
+  confidence: 'very_low' | 'low' | 'medium' | 'high';
+  sample_size: number;
+  by_day: Array<{ day: string; value: number }>;
+  by_hour: Array<{ hour: number; value: number }>;
+  basis: string;
+}
+
+export interface EscrowGrowthApi {
+  currency: string;
+  current_gmv: string;
+  projected_gmv: string;
+  growth_amount: string;
+  growth_pct: string;
+  run_rate: string;
+  trend: 'up' | 'down' | 'flat';
+  confidence: 'very_low' | 'low' | 'medium' | 'high';
+  method: string;
+  data_months: number;
+  basis: string;
+  generated_at: string;
+}
+
+export interface EscrowGrowth {
+  currency: string;
+  currentGmv: number;
+  projectedGmv: number;
+  growthAmount: number;
+  growthPct: number;
+  runRate: number;
+  trend: 'up' | 'down' | 'flat';
+  confidence: 'very_low' | 'low' | 'medium' | 'high';
+  method: string;
+  dataMonths: number;
+  basis: string;
+}
+
+const mapEscrowGrowth = (d: EscrowGrowthApi): EscrowGrowth => ({
+  currency: d.currency,
+  currentGmv: Number(d.current_gmv) || 0,
+  projectedGmv: Number(d.projected_gmv) || 0,
+  growthAmount: Number(d.growth_amount) || 0,
+  growthPct: Number(d.growth_pct) || 0,
+  runRate: Number(d.run_rate) || 0,
+  trend: d.trend,
+  confidence: d.confidence,
+  method: d.method,
+  dataMonths: d.data_months,
+  basis: d.basis,
+});
+
 export interface FinancialForecastApi {
   monthly_forecasted_revenue: string;
   seasonal_peak: { label: string; demand: string };
   projected_escrow_growth: string;
   currency: string;
+  seasonal_peak_detail?: SeasonalPeakApi;
+  escrow_growth_detail?: EscrowGrowthApi;
+}
+
+export interface SeasonalPeak {
+  peakDay: string;
+  peakDayShort: string;
+  peakTimeWindow: string;
+  peakHour: number;
+  label: string;
+  demandLevel: 'Unknown' | 'Even' | 'Moderate' | 'High';
+  demandPhrase: string;
+  trend: 'up' | 'down' | 'flat';
+  confidence: 'very_low' | 'low' | 'medium' | 'high';
+  sampleSize: number;
+  byDay: Array<{ day: string; value: number }>;
+  byHour: Array<{ hour: number; value: number }>;
+  basis: string;
 }
 
 export interface FinancialForecast {
@@ -46,7 +135,26 @@ export interface FinancialForecast {
   seasonalPeak: { label: string; demand: string };
   projectedEscrowGrowth: number;
   currency: string;
+  seasonalPeakDetail?: SeasonalPeak;
+  escrowGrowthDetail?: EscrowGrowth;
 }
+
+/** Map the wire seasonal-peak shape → camelCase. */
+const mapSeasonalPeak = (d: SeasonalPeakApi): SeasonalPeak => ({
+  peakDay: d.peak_day,
+  peakDayShort: d.peak_day_short,
+  peakTimeWindow: d.peak_time_window,
+  peakHour: d.peak_hour,
+  label: d.label,
+  demandLevel: d.demand_level,
+  demandPhrase: d.demand_phrase,
+  trend: d.trend,
+  confidence: d.confidence,
+  sampleSize: d.sample_size,
+  byDay: d.by_day,
+  byHour: d.by_hour,
+  basis: d.basis,
+});
 
 /** One bucket of the Seasonal Demand area chart. */
 export interface SeasonalDemandPoint {
@@ -105,6 +213,38 @@ export interface TransactionInsights {
   dailyAvgValue: number;
   currency: string;
 }
+
+/** Refund rate — dispute outcomes (money returned to buyers). */
+export interface RefundRateApi {
+  currency: string;
+  refund_rate_pct: string;
+  refunds_count: number;
+  releases_count: number;
+  resolved_disputes: number;
+  total_refunded: string;
+  avg_refund: string;
+  generated_at: string;
+}
+
+export interface RefundRate {
+  currency: string;
+  refundRatePct: number;
+  refundsCount: number;
+  releasesCount: number;
+  resolvedDisputes: number;
+  totalRefunded: number;
+  avgRefund: number;
+}
+
+const mapRefundRate = (d: RefundRateApi): RefundRate => ({
+  currency: d.currency,
+  refundRatePct: Number(d.refund_rate_pct) || 0,
+  refundsCount: d.refunds_count,
+  releasesCount: d.releases_count,
+  resolvedDisputes: d.resolved_disputes,
+  totalRefunded: Number(d.total_refunded) || 0,
+  avgRefund: Number(d.avg_refund) || 0,
+});
 
 /** One month of the Revenue vs Forecast line chart. */
 export interface RevenueTrendPoint {
@@ -305,6 +445,14 @@ const analyticsService = {
         inEscrowBalance: Number(d.in_escrow_balance) || 0,
         transactionFees: Number(d.transaction_fees) || 0,
         currency: d.currency,
+        escrowReconciliation: d.escrow_reconciliation
+          ? {
+              activeEscrow: Number(d.escrow_reconciliation.active_escrow) || 0,
+              walletLedger: Number(d.escrow_reconciliation.wallet_ledger) || 0,
+              drift: Number(d.escrow_reconciliation.drift) || 0,
+              reconciled: d.escrow_reconciliation.reconciled,
+            }
+          : undefined,
         generatedAt: d.generated_at,
       },
     };
@@ -329,8 +477,36 @@ const analyticsService = {
         seasonalPeak: d.seasonal_peak,
         projectedEscrowGrowth: Number(d.projected_escrow_growth) || 0,
         currency: d.currency,
+        seasonalPeakDetail: d.seasonal_peak_detail
+          ? mapSeasonalPeak(d.seasonal_peak_detail)
+          : undefined,
+        escrowGrowthDetail: d.escrow_growth_detail
+          ? mapEscrowGrowth(d.escrow_growth_detail)
+          : undefined,
       },
     };
+  },
+
+  escrowGrowth: async (currency = 'GHS'): Promise<ApiResponse<EscrowGrowth>> => {
+    const { data } = await apiClient.get<ApiResponse<EscrowGrowthApi>>(
+      '/analytics/escrow-growth',
+      { params: { currency } },
+    );
+    if (!data.success || !data.data) {
+      return { success: false, message: data.message };
+    }
+    return { success: true, message: data.message, data: mapEscrowGrowth(data.data) };
+  },
+
+  seasonalPeak: async (currency = 'GHS'): Promise<ApiResponse<SeasonalPeak>> => {
+    const { data } = await apiClient.get<ApiResponse<SeasonalPeakApi>>(
+      '/analytics/seasonal-peak',
+      { params: { currency } },
+    );
+    if (!data.success || !data.data) {
+      return { success: false, message: data.message };
+    }
+    return { success: true, message: data.message, data: mapSeasonalPeak(data.data) };
   },
 
   seasonalDemand: async (
@@ -403,6 +579,16 @@ const analyticsService = {
         currency: d.currency,
       },
     };
+  },
+
+  refundRate: async (currency = 'GHS'): Promise<ApiResponse<RefundRate>> => {
+    const { data } = await apiClient.get<ApiResponse<RefundRateApi>>('/analytics/refund-rate', {
+      params: { currency },
+    });
+    if (!data.success || !data.data) {
+      return { success: false, message: data.message };
+    }
+    return { success: true, message: data.message, data: mapRefundRate(data.data) };
   },
 
   revenueTrend: async (

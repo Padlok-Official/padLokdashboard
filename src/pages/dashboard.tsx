@@ -344,6 +344,23 @@ const DashboardPage: FC = () => {
               </span>
             </div>
           )}
+
+          {/* Escrow reconciliation — flag stale wallet escrow_balance vs active escrow */}
+          {!summaryIsDemo &&
+            financials?.escrowReconciliation &&
+            !financials.escrowReconciliation.reconciled && (
+              <div
+                className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-[11px] leading-snug text-amber-700"
+                title="wallets.escrow_balance doesn't match active escrow deals — likely stale balances not released in the user backend."
+              >
+                ⚠ In-escrow shows active deals (
+                {formatCurrencyFull(financials.escrowReconciliation.activeEscrow, financials.currency)}).
+                Wallet ledger holds{' '}
+                {formatCurrencyFull(financials.escrowReconciliation.walletLedger, financials.currency)}{' '}
+                — a {formatCurrencyFull(financials.escrowReconciliation.drift, financials.currency)} drift
+                (stale/orphaned balances to reconcile in the user backend).
+              </div>
+            )}
         </div>
       </div>
 

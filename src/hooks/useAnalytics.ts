@@ -23,6 +23,7 @@ import type {
   TakeRate,
   CashFlowPoint,
   TransactionFees,
+  RefundRate,
 } from '@/services/analytics-service';
 
 const PLATFORM_ACTIVITY_KEY = ['analytics', 'platform-activity'] as const;
@@ -36,6 +37,8 @@ const PAYMENT_BEHAVIOR_KEY = (currency: string) =>
   ['analytics', 'payment-behavior', currency] as const;
 const WALLET_BALANCE_TREND_KEY = (currency: string, days: number) =>
   ['analytics', 'wallet-balance-trend', currency, days] as const;
+const REFUND_RATE_KEY = (currency: string) =>
+  ['analytics', 'refund-rate', currency] as const;
 const TRANSACTION_INSIGHTS_KEY = (currency: string) =>
   ['analytics', 'transaction-insights', currency] as const;
 const REVENUE_TREND_KEY = (currency: string, months: number) =>
@@ -217,6 +220,31 @@ export const useTransactionInsights = (
       const res = await analyticsService.transactionInsights(currency);
       if (!res.success || !res.data) {
         throw new Error(res.message ?? 'Failed to load transaction insights');
+      }
+      return res.data;
+    },
+    refetchInterval,
+    refetchIntervalInBackground: false,
+    staleTime: 10_000,
+  });
+};
+
+/**
+ * Refund rate — share of resolved escrow disputes refunded to the buyer, plus
+ * the money returned. For the Integration Insights "Refund Rate" card.
+ */
+export const useRefundRate = (
+  currency = 'GHS',
+  options?: { refetchIntervalMs?: number },
+) => {
+  const refetchInterval = options?.refetchIntervalMs ?? 30_000;
+
+  return useQuery<RefundRate>({
+    queryKey: REFUND_RATE_KEY(currency),
+    queryFn: async () => {
+      const res = await analyticsService.refundRate(currency);
+      if (!res.success || !res.data) {
+        throw new Error(res.message ?? 'Failed to load refund rate');
       }
       return res.data;
     },
