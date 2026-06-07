@@ -1,9 +1,19 @@
 import type { FC } from 'react';
 import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { DollarSign, Activity, ArrowLeftRight } from 'lucide-react';
+import {
+  DollarSign,
+  Activity,
+  ArrowLeftRight,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Wallet,
+  Receipt,
+  Percent,
+} from 'lucide-react';
 import StatCard from '@/components/shared/StatCard';
 import PageSkeleton from '@/components/shared/PageSkeleton';
+import { useCashFlow, useTakeRate } from '@/hooks/useAnalytics';
 import {
   walletService,
   escrowService,
@@ -46,6 +56,9 @@ const WalletEscrowPage: FC = () => {
     queryFn: () => walletService.getStats('GHS'),
   });
 
+  const cashFlowQuery = useCashFlow('GHS');
+  const takeRateQuery = useTakeRate('GHS');
+
   const isLoading =
     transactionsQuery.isLoading || escrowStatsQuery.isLoading || walletStatsQuery.isLoading;
   const hasError =
@@ -61,6 +74,9 @@ const WalletEscrowPage: FC = () => {
   const totalInEscrow = Number(escrowStats?.total_in_escrow ?? 0);
   const totalReleased = Number(escrowStats?.total_released ?? 0);
   const fundingPerHour = walletStats?.funding_per_hour ?? '0';
+
+  const cashFlow = cashFlowQuery.data;
+  const takeRate = takeRateQuery.data;
 
   return (
     <div>
@@ -98,6 +114,67 @@ const WalletEscrowPage: FC = () => {
           label="Total Released Funds"
           change="+6.7%"
           trend="up"
+        />
+      </div>
+
+      {/* Cash flow & economics — money in/out, float, Paystack fees, take rate */}
+      <div className="mb-2 mt-2">
+        <h2 className="text-lg font-bold text-gray-900">Cash Flow &amp; Economics</h2>
+        <p className="text-sm text-gray-500">
+          Real money movement through the platform. Paystack fees are paid by customers
+          (estimated at Ghana rates — 1.95% deposits, GHS&nbsp;8 bank payout) so they are
+          shown for visibility, not as a PadLok cost. Our income is the service fee.
+        </p>
+      </div>
+
+      <div className="mb-8 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+        <StatCard
+          icon={<ArrowDownToLine size={20} className="text-white" />}
+          value={formatCurrency(cashFlow?.inflow ?? 0, currency)}
+          label={`Money In · ${cashFlow?.inflowCount ?? 0} deposits`}
+          change=""
+          trend="neutral"
+        />
+        <StatCard
+          icon={<ArrowUpFromLine size={20} className="text-white" />}
+          value={formatCurrency(cashFlow?.outflow ?? 0, currency)}
+          label={`Money Out · ${cashFlow?.outflowCount ?? 0} withdrawals`}
+          change=""
+          trend="neutral"
+        />
+        <StatCard
+          icon={<ArrowLeftRight size={20} className="text-white" />}
+          value={formatCurrency(cashFlow?.netFlow ?? 0, currency)}
+          label="Net Cash Flow (in − out)"
+          change=""
+          trend={
+            cashFlow && cashFlow.netFlow !== 0
+              ? cashFlow.netFlow > 0
+                ? 'up'
+                : 'down'
+              : 'neutral'
+          }
+        />
+        <StatCard
+          icon={<Wallet size={20} className="text-white" />}
+          value={formatCurrency(cashFlow?.float.total ?? 0, currency)}
+          label="Float Held (wallets + escrow)"
+          change=""
+          trend="neutral"
+        />
+        <StatCard
+          icon={<Receipt size={20} className="text-white" />}
+          value={formatCurrency(cashFlow?.providerFees.total ?? 0, currency)}
+          label="Paystack Fees (paid by customers, est.)"
+          change=""
+          trend="neutral"
+        />
+        <StatCard
+          icon={<Percent size={20} className="text-white" />}
+          value={`${takeRate?.configuredFeePct ?? 0}%`}
+          label={`Service Fee / Deal · eff. ${takeRate?.effectiveFeePct ?? 0}%`}
+          change=""
+          trend="neutral"
         />
       </div>
 

@@ -16,7 +16,11 @@ import {
   Receipt,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { usePlatformActivity, useFinancialSummary } from '@/hooks/useAnalytics';
+import {
+  usePlatformActivity,
+  useFinancialSummary,
+  useTransactionFees,
+} from '@/hooks/useAnalytics';
 
 /**
  * Demo-mode fallback for the Financial Summary cards. If the API errors
@@ -174,6 +178,8 @@ const DashboardPage: FC = () => {
     isLoading: financialsLoading,
     error: financialsError,
   } = useFinancialSummary();
+
+  const { data: txFees } = useTransactionFees();
 
   // Transform API response → histogram rows. Until the first fetch
   // resolves, show zeros so the chart axes are stable.
@@ -339,6 +345,79 @@ const DashboardPage: FC = () => {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Transaction Fees Breakdown — PadLok service fee vs Paystack API fees */}
+      <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-6">
+        <div className="mb-1 flex items-center justify-between">
+          <h3 className="text-lg font-bold text-gray-900">Transaction Fees Breakdown</h3>
+          <span className="text-xs font-semibold tabular-nums text-gray-900">
+            Total {formatCurrencyFull(txFees?.totalFees ?? 0, txFees?.currency)}
+          </span>
+        </div>
+        <p className="mb-4 text-sm text-gray-500">
+          Every fee on completed transactions — what PadLok earns vs what Paystack charges
+          (customer-borne, estimated).
+        </p>
+
+        <div className="divide-y divide-gray-100">
+          {(txFees?.items ?? []).map((item) => {
+            const isPadlok = item.kind === 'padlok';
+            return (
+              <div key={item.key} className="flex items-center justify-between py-2.5">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-900">{item.label}</span>
+                    <span
+                      className={cn(
+                        'rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+                        isPadlok
+                          ? 'bg-brand-green/10 text-brand-green'
+                          : 'bg-amber-50 text-amber-700',
+                      )}
+                    >
+                      {isPadlok ? 'Our revenue' : 'Customer pays'}
+                    </span>
+                    {item.isEstimate && (
+                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
+                        est.
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-0.5 text-xs text-gray-500">{item.rateLabel}</p>
+                </div>
+                <span className="shrink-0 text-sm font-semibold tabular-nums text-gray-900">
+                  {formatCurrencyFull(item.amount, txFees?.currency)}
+                </span>
+              </div>
+            );
+          })}
+
+          {!txFees && (
+            <div className="space-y-3 py-2">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-8 animate-pulse rounded bg-gray-100" />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {txFees && (
+          <div className="mt-4 grid grid-cols-2 gap-3 border-t border-gray-100 pt-3 text-xs">
+            <div className="flex items-center justify-between rounded-lg bg-[#F6FBF6] px-3 py-2">
+              <span className="font-medium text-brand-green">PadLok earns</span>
+              <span className="font-semibold tabular-nums text-gray-900">
+                {formatCurrencyFull(txFees.padlok.total, txFees.currency)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between rounded-lg bg-amber-50 px-3 py-2">
+              <span className="font-medium text-amber-700">Customers pay Paystack</span>
+              <span className="font-semibold tabular-nums text-gray-900">
+                {formatCurrencyFull(txFees.paystack.total, txFees.currency)}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
     </div>

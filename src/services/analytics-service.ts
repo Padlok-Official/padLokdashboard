@@ -139,6 +139,143 @@ export interface WalletLoadingPoint {
   count: number; // completed funding events
 }
 
+/**
+ * Cash flow: money in (completed deposits), money out (completed withdrawals),
+ * the float we custody, and the ESTIMATED Paystack cost PadLok absorbs.
+ * Backend sends decimals as strings; parsed to numbers here.
+ */
+export interface CashFlowApi {
+  currency: string;
+  inflow: string;
+  inflow_count: number;
+  outflow: string;
+  outflow_count: number;
+  net_flow: string;
+  float: { available: string; escrow_locked: string; total: string };
+  provider_fees: {
+    deposits: string;
+    withdrawals: string;
+    total: string;
+    borne_by_platform: string;
+    borne_by_customer: string;
+    is_estimate: boolean;
+  };
+  platform_net: string;
+  reconciliation: { expected_user_float: string; actual_float: string; drift: string };
+  generated_at: string;
+}
+
+export interface CashFlow {
+  currency: string;
+  inflow: number;
+  inflowCount: number;
+  outflow: number;
+  outflowCount: number;
+  netFlow: number;
+  float: { available: number; escrowLocked: number; total: number };
+  /** Estimated Paystack fees flowing to the provider, and who bears them.
+   *  Customers bear all of it today, so it's informational — not our cost. */
+  providerFees: {
+    deposits: number;
+    withdrawals: number;
+    total: number;
+    borneByPlatform: number;
+    borneByCustomer: number;
+    isEstimate: boolean;
+  };
+  /** Our net from the service fee after any platform-borne provider cost. */
+  platformNet: number;
+  reconciliation: { expectedUserFloat: number; actualFloat: number; drift: number };
+  generatedAt: string;
+}
+
+/** Take rate: the one-time % we charge per escrow transaction. */
+export interface TakeRateApi {
+  currency: string;
+  configured_fee_pct: string;
+  effective_fee_pct: string;
+  revenue_per_transaction: string;
+  total_fees: string;
+  total_gmv: string;
+  completed_count: number;
+  generated_at: string;
+}
+
+export interface TakeRate {
+  currency: string;
+  configuredFeePct: number;
+  effectiveFeePct: number;
+  revenuePerTransaction: number;
+  totalFees: number;
+  totalGmv: number;
+  completedCount: number;
+}
+
+/** One day of the cash-flow in/out chart. */
+export interface CashFlowPoint {
+  date: string; // YYYY-MM-DD
+  inflow: string;
+  outflow: string;
+  net: string;
+}
+
+/**
+ * Transaction-fees breakdown for the BI Overview: PadLok's service fee (our
+ * revenue) vs Paystack's API fees (estimated, customer-borne). Strings on the
+ * wire, parsed to numbers here.
+ */
+export interface FeeItemApi {
+  key: string;
+  label: string;
+  amount: string;
+  rate_label: string;
+  effective_pct: string;
+  kind: 'padlok' | 'paystack';
+  borne_by: string;
+  is_estimate: boolean;
+}
+
+export interface TransactionFeesApi {
+  currency: string;
+  total_fees: string;
+  padlok: { total: string };
+  paystack: {
+    deposits: string;
+    withdrawals: string;
+    total: string;
+    is_estimate: boolean;
+    borne_by: string;
+  };
+  items: FeeItemApi[];
+  generated_at: string;
+}
+
+export interface FeeItem {
+  key: string;
+  label: string;
+  amount: number;
+  rateLabel: string;
+  effectivePct: number;
+  kind: 'padlok' | 'paystack';
+  borneBy: string;
+  isEstimate: boolean;
+}
+
+export interface TransactionFees {
+  currency: string;
+  totalFees: number;
+  padlok: { total: number };
+  paystack: {
+    deposits: number;
+    withdrawals: number;
+    total: number;
+    isEstimate: boolean;
+    borneBy: string;
+  };
+  items: FeeItem[];
+  generatedAt: string;
+}
+
 const analyticsService = {
   platformActivity: async (): Promise<ApiResponse<PlatformActivity>> => {
     const { data } = await apiClient.get<ApiResponse<PlatformActivity>>(
@@ -311,6 +448,124 @@ const analyticsService = {
       { params: { currency, days } },
     );
     return data;
+  },
+
+  cashFlow: async (currency = 'GHS'): Promise<ApiResponse<CashFlow>> => {
+    const { data } = await apiClient.get<ApiResponse<CashFlowApi>>('/analytics/cash-flow', {
+      params: { currency },
+    });
+    if (!data.success || !data.data) {
+      return { success: false, message: data.message };
+    }
+    const d = data.data;
+    return {
+      success: true,
+      message: data.message,
+      data: {
+        currency: d.currency,
+        inflow: Number(d.inflow) || 0,
+        inflowCount: d.inflow_count,
+        outflow: Number(d.outflow) || 0,
+        outflowCount: d.outflow_count,
+        netFlow: Number(d.net_flow) || 0,
+        float: {
+          available: Number(d.float.available) || 0,
+          escrowLocked: Number(d.float.escrow_locked) || 0,
+          total: Number(d.float.total) || 0,
+        },
+        providerFees: {
+          deposits: Number(d.provider_fees.deposits) || 0,
+          withdrawals: Number(d.provider_fees.withdrawals) || 0,
+          total: Number(d.provider_fees.total) || 0,
+          borneByPlatform: Number(d.provider_fees.borne_by_platform) || 0,
+          borneByCustomer: Number(d.provider_fees.borne_by_customer) || 0,
+          isEstimate: d.provider_fees.is_estimate,
+        },
+        platformNet: Number(d.platform_net) || 0,
+        reconciliation: {
+          expectedUserFloat: Number(d.reconciliation.expected_user_float) || 0,
+          actualFloat: Number(d.reconciliation.actual_float) || 0,
+          drift: Number(d.reconciliation.drift) || 0,
+        },
+        generatedAt: d.generated_at,
+      },
+    };
+  },
+
+  takeRate: async (currency = 'GHS'): Promise<ApiResponse<TakeRate>> => {
+    const { data } = await apiClient.get<ApiResponse<TakeRateApi>>('/analytics/take-rate', {
+      params: { currency },
+    });
+    if (!data.success || !data.data) {
+      return { success: false, message: data.message };
+    }
+    const d = data.data;
+    return {
+      success: true,
+      message: data.message,
+      data: {
+        currency: d.currency,
+        configuredFeePct: Number(d.configured_fee_pct) || 0,
+        effectiveFeePct: Number(d.effective_fee_pct) || 0,
+        revenuePerTransaction: Number(d.revenue_per_transaction) || 0,
+        totalFees: Number(d.total_fees) || 0,
+        totalGmv: Number(d.total_gmv) || 0,
+        completedCount: d.completed_count,
+      },
+    };
+  },
+
+  cashFlowSeries: async (
+    currency = 'GHS',
+    days = 30,
+  ): Promise<ApiResponse<CashFlowPoint[]>> => {
+    const { data } = await apiClient.get<ApiResponse<CashFlowPoint[]>>(
+      '/analytics/cash-flow-series',
+      { params: { currency, days } },
+    );
+    return data;
+  },
+
+  transactionFees: async (
+    currency = 'GHS',
+  ): Promise<ApiResponse<TransactionFees>> => {
+    const { data } = await apiClient.get<ApiResponse<TransactionFeesApi>>(
+      '/analytics/transaction-fees',
+      { params: { currency } },
+    );
+    if (!data.success || !data.data) {
+      return { success: false, message: data.message };
+    }
+    const d = data.data;
+    return {
+      success: true,
+      message: data.message,
+      data: {
+        currency: d.currency,
+        totalFees: Number(d.total_fees) || 0,
+        padlok: {
+          total: Number(d.padlok.total) || 0,
+        },
+        paystack: {
+          deposits: Number(d.paystack.deposits) || 0,
+          withdrawals: Number(d.paystack.withdrawals) || 0,
+          total: Number(d.paystack.total) || 0,
+          isEstimate: d.paystack.is_estimate,
+          borneBy: d.paystack.borne_by,
+        },
+        items: d.items.map((i) => ({
+          key: i.key,
+          label: i.label,
+          amount: Number(i.amount) || 0,
+          rateLabel: i.rate_label,
+          effectivePct: Number(i.effective_pct) || 0,
+          kind: i.kind,
+          borneBy: i.borne_by,
+          isEstimate: i.is_estimate,
+        })),
+        generatedAt: d.generated_at,
+      },
+    };
   },
 };
 

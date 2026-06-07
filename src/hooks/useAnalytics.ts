@@ -19,6 +19,10 @@ import type {
   RevenueTrendPoint,
   RevenueEfficiency,
   WalletLoadingPoint,
+  CashFlow,
+  TakeRate,
+  CashFlowPoint,
+  TransactionFees,
 } from '@/services/analytics-service';
 
 const PLATFORM_ACTIVITY_KEY = ['analytics', 'platform-activity'] as const;
@@ -40,6 +44,12 @@ const REVENUE_EFFICIENCY_KEY = (currency: string) =>
   ['analytics', 'revenue-efficiency', currency] as const;
 const WALLET_LOADING_PATTERNS_KEY = (currency: string, days: number) =>
   ['analytics', 'wallet-loading-patterns', currency, days] as const;
+const CASH_FLOW_KEY = (currency: string) => ['analytics', 'cash-flow', currency] as const;
+const TAKE_RATE_KEY = (currency: string) => ['analytics', 'take-rate', currency] as const;
+const CASH_FLOW_SERIES_KEY = (currency: string, days: number) =>
+  ['analytics', 'cash-flow-series', currency, days] as const;
+const TRANSACTION_FEES_KEY = (currency: string) =>
+  ['analytics', 'transaction-fees', currency] as const;
 
 /**
  * Live platform activity counts for the BI Overview histogram.
@@ -283,6 +293,101 @@ export const useWalletLoadingPatterns = (
       const res = await analyticsService.walletLoadingPatterns(currency, days);
       if (!res.success || !res.data) {
         throw new Error(res.message ?? 'Failed to load wallet loading patterns');
+      }
+      return res.data;
+    },
+    refetchInterval,
+    refetchIntervalInBackground: false,
+    staleTime: 30_000,
+  });
+};
+
+/**
+ * Cash flow (money in/out, float, estimated provider cost) for the Wallet &
+ * Escrow page. Totals move slowly, so a 30s refresh is plenty.
+ */
+export const useCashFlow = (
+  currency = 'GHS',
+  options?: { refetchIntervalMs?: number },
+) => {
+  const refetchInterval = options?.refetchIntervalMs ?? 30_000;
+
+  return useQuery<CashFlow>({
+    queryKey: CASH_FLOW_KEY(currency),
+    queryFn: async () => {
+      const res = await analyticsService.cashFlow(currency);
+      if (!res.success || !res.data) {
+        throw new Error(res.message ?? 'Failed to load cash flow');
+      }
+      return res.data;
+    },
+    refetchInterval,
+    refetchIntervalInBackground: false,
+    staleTime: 10_000,
+  });
+};
+
+/** The one-time % we charge per escrow transaction (Wallet & Escrow page). */
+export const useTakeRate = (
+  currency = 'GHS',
+  options?: { refetchIntervalMs?: number },
+) => {
+  const refetchInterval = options?.refetchIntervalMs ?? 60_000;
+
+  return useQuery<TakeRate>({
+    queryKey: TAKE_RATE_KEY(currency),
+    queryFn: async () => {
+      const res = await analyticsService.takeRate(currency);
+      if (!res.success || !res.data) {
+        throw new Error(res.message ?? 'Failed to load take rate');
+      }
+      return res.data;
+    },
+    refetchInterval,
+    refetchIntervalInBackground: false,
+    staleTime: 30_000,
+  });
+};
+
+/**
+ * Transaction-fees breakdown (PadLok service fee vs Paystack API fees) for the
+ * BI Overview. Totals move slowly — 30s refresh.
+ */
+export const useTransactionFees = (
+  currency = 'GHS',
+  options?: { refetchIntervalMs?: number },
+) => {
+  const refetchInterval = options?.refetchIntervalMs ?? 30_000;
+
+  return useQuery<TransactionFees>({
+    queryKey: TRANSACTION_FEES_KEY(currency),
+    queryFn: async () => {
+      const res = await analyticsService.transactionFees(currency);
+      if (!res.success || !res.data) {
+        throw new Error(res.message ?? 'Failed to load transaction fees');
+      }
+      return res.data;
+    },
+    refetchInterval,
+    refetchIntervalInBackground: false,
+    staleTime: 10_000,
+  });
+};
+
+/** Daily inflow/outflow series for the cash-flow chart. */
+export const useCashFlowSeries = (
+  currency = 'GHS',
+  days = 30,
+  options?: { refetchIntervalMs?: number },
+) => {
+  const refetchInterval = options?.refetchIntervalMs ?? 60_000;
+
+  return useQuery<CashFlowPoint[]>({
+    queryKey: CASH_FLOW_SERIES_KEY(currency, days),
+    queryFn: async () => {
+      const res = await analyticsService.cashFlowSeries(currency, days);
+      if (!res.success || !res.data) {
+        throw new Error(res.message ?? 'Failed to load cash flow series');
       }
       return res.data;
     },
