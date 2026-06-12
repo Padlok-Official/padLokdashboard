@@ -24,7 +24,7 @@ import { formatCurrency } from '@/lib/format-currency';
 import { formatDate } from '@/lib/format-date';
 
 const movementLabel: Record<WalletTxType, string> = {
-  funding: 'Paystack → Wallet',
+  funding: 'Moolre → Wallet',
   withdrawal: 'Wallet → Bank',
   escrow_lock: 'Buyer → Escrow',
   escrow_release: 'Escrow → Seller',
@@ -117,13 +117,14 @@ const WalletEscrowPage: FC = () => {
         />
       </div>
 
-      {/* Cash flow & economics — money in/out, float, Paystack fees, take rate */}
+      {/* Cash flow & economics — money in/out, float, Moolre fees, take rate */}
       <div className="mb-2 mt-2">
         <h2 className="text-lg font-bold text-gray-900">Cash Flow &amp; Economics</h2>
         <p className="text-sm text-gray-500">
-          Real money movement through the platform. Paystack fees are paid by customers
-          (estimated at Ghana rates — 1.95% deposits, GHS&nbsp;8 bank payout) so they are
-          shown for visibility, not as a PadLok cost. Our income is the service fee.
+          Real money movement through the platform. Moolre fees are paid by customers
+          (estimated at Ghana rates — ~2% deposits, 1% transfers, with a per-transaction
+          min and cap) so they are shown for visibility, not as a PadLok cost. Our income
+          is the service fee.
         </p>
       </div>
 
@@ -165,7 +166,7 @@ const WalletEscrowPage: FC = () => {
         <StatCard
           icon={<Receipt size={20} className="text-white" />}
           value={formatCurrency(cashFlow?.providerFees.total ?? 0, currency)}
-          label="Paystack Fees (paid by customers, est.)"
+          label="Moolre Fees (paid by customers, est.)"
           change=""
           trend="neutral"
         />
