@@ -16,6 +16,8 @@ import DisputesPage from '@/pages/disputes';
 import EvidencePanelPage from '@/pages/evidence-panel';
 import FlagsReportsPage from '@/pages/flags-reports';
 import FlaggedUserDetailsPage from '@/pages/flagged-user-details';
+import KYCVerificationPage from '@/pages/kyc-verification';
+import KYCVerificationDetailPage from '@/pages/kyc-verification-detail';
 import NotificationsPage from '@/pages/notifications';
 import AdminManagementPage from '@/pages/admin-management';
 import RolePermissionsPage from '@/pages/role-permissions';
@@ -80,6 +82,8 @@ export const router = createBrowserRouter([
       { path: 'disputes/:disputeId', element: <EvidencePanelPage /> },
       { path: 'flags-reports', element: <FlagsReportsPage /> },
       { path: 'flags-reports/:userId', element: <FlaggedUserDetailsPage /> },
+      { path: 'kyc-verification', element: <KYCVerificationPage /> },
+      { path: 'kyc-verification/:userId', element: <KYCVerificationDetailPage /> },
       { path: 'notifications', element: <NotificationsPage /> },
       { path: 'admin-management', element: <AdminManagementPage /> },
       { path: 'admin-management/permissions', element: <RolePermissionsPage /> },
