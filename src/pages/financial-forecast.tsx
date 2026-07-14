@@ -13,7 +13,9 @@ const FinancialForecastPage: FC = () => {
 
   const forecast = forecastQuery.data;
   const growth = forecast?.projectedEscrowGrowth ?? 0;
-  const growthIsPositive = growth >= 0;
+  const escrowGrowth = forecast?.escrowGrowthDetail;
+  const growthTrend =
+    escrowGrowth?.trend === 'up' ? 'up' : escrowGrowth?.trend === 'down' ? 'down' : 'neutral';
 
   const hasError = forecastQuery.isError || seasonalQuery.isError;
 
@@ -51,20 +53,34 @@ const FinancialForecastPage: FC = () => {
         <StatCard
           icon={<CalendarDays size={20} className="text-white" />}
           value={forecastQuery.isLoading ? '—' : forecast?.seasonalPeak.label ?? 'N/A'}
-          label="Seasonal Peak"
-          change={forecast?.seasonalPeak.demand ?? ''}
-          trend={forecast?.seasonalPeak.demand === 'High Demand' ? 'up' : 'neutral'}
+          label={`Peak Demand · ${forecast?.seasonalPeak.demand ?? ''}`}
+          change={
+            forecast?.seasonalPeakDetail && forecast.seasonalPeakDetail.confidence !== 'high'
+              ? `${forecast.seasonalPeakDetail.confidence.replace('_', ' ')} confidence`
+              : ''
+          }
+          trend={
+            forecast?.seasonalPeakDetail?.trend === 'up'
+              ? 'up'
+              : forecast?.seasonalPeakDetail?.trend === 'down'
+                ? 'down'
+                : 'neutral'
+          }
         />
         <StatCard
           icon={<AlertTriangle size={20} className="text-white" />}
           value={
             forecastQuery.isLoading
               ? '—'
-              : formatCurrency(growth, forecast?.currency ?? CURRENCY)
+              : `${growth >= 0 ? '+' : ''}${formatCurrency(growth, forecast?.currency ?? CURRENCY)}/mo`
           }
-          label="Projected Escrow Growth"
-          change={`${growthIsPositive ? '+' : ''}${formatCurrency(growth, forecast?.currency ?? CURRENCY)}/mo`}
-          trend={growthIsPositive ? 'up' : 'down'}
+          label={
+            escrowGrowth && escrowGrowth.confidence !== 'high'
+              ? `Projected Escrow Growth · ${escrowGrowth.confidence.replace('_', ' ')} confidence`
+              : 'Projected Escrow Growth'
+          }
+          change={escrowGrowth ? `${escrowGrowth.growthPct >= 0 ? '+' : ''}${escrowGrowth.growthPct}%` : ''}
+          trend={growthTrend}
         />
       </div>
 

@@ -2,7 +2,11 @@ import type { FC } from 'react';
 import { CircleDot, DollarSign, Activity, Zap } from 'lucide-react';
 import StatCard from '@/components/shared/StatCard';
 import RevenueChart from '@/components/charts/RevenueChart';
-import { useTransactionInsights, useRevenueTrend } from '@/hooks/useAnalytics';
+import {
+  useTransactionInsights,
+  useRevenueTrend,
+  useRefundRate,
+} from '@/hooks/useAnalytics';
 import { formatCurrency } from '@/lib/format-currency';
 
 const CURRENCY = 'GHS';
@@ -14,8 +18,10 @@ const formatCompact = (n: number): string =>
 const IntegrationInsightsPage: FC = () => {
   const insightsQuery = useTransactionInsights(CURRENCY);
   const revenueQuery = useRevenueTrend(CURRENCY, 6);
+  const refundQuery = useRefundRate(CURRENCY);
 
   const insights = insightsQuery.data;
+  const refund = refundQuery.data;
   const loading = insightsQuery.isLoading;
   const hasError = insightsQuery.isError || revenueQuery.isError;
   const cur = insights?.currency ?? CURRENCY;
@@ -34,8 +40,12 @@ const IntegrationInsightsPage: FC = () => {
       value: loading ? '—' : `${(insights?.failedRatePct ?? 0).toFixed(1)}%`,
     },
     {
-      label: 'Refund Rate',
-      value: loading ? '—' : `${(insights?.refundRatePct ?? 0).toFixed(1)}%`,
+      label: 'Refund Rate (resolved disputes)',
+      value: refundQuery.isLoading ? '—' : `${(refund?.refundRatePct ?? 0).toFixed(1)}%`,
+    },
+    {
+      label: 'Refunded to Buyers',
+      value: refundQuery.isLoading ? '—' : formatCurrency(refund?.totalRefunded ?? 0, cur),
     },
   ];
 
@@ -75,9 +85,13 @@ const IntegrationInsightsPage: FC = () => {
         />
         <StatCard
           icon={<Activity size={20} className="text-white" />}
-          value={loading ? '—' : `${(insights?.refundRatePct ?? 0).toFixed(1)}%`}
+          value={refundQuery.isLoading ? '—' : `${(refund?.refundRatePct ?? 0).toFixed(1)}%`}
           label="Refund Rate"
-          change="Of all txns"
+          change={
+            refund
+              ? `${formatCurrency(refund.totalRefunded, cur)} to buyers · ${refund.resolvedDisputes} resolved`
+              : 'Of resolved disputes'
+          }
           trend="neutral"
         />
       </div>
