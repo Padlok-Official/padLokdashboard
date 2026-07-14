@@ -52,6 +52,26 @@ export interface ListAdminsParams {
   limit?: number;
 }
 
+export interface AuditLogItem {
+  id: string;
+  action: string;
+  entityType: string | null;
+  entityId: string | null;
+  details: Record<string, unknown>;
+  ipAddress: string | null;
+  userAgent: string | null;
+  createdAt: string;
+  admin: { id: string; name: string; email: string } | null;
+}
+
+export interface ListAuditLogsParams {
+  search?: string;
+  action?: string;
+  adminId?: string;
+  page?: number;
+  limit?: number;
+}
+
 const adminService = {
   list: async (
     params: ListAdminsParams = {},
@@ -89,6 +109,16 @@ const adminService = {
     const { data } = await apiClient.post<ApiResponse<InviteResult>>(
       '/admins/invite',
       payload,
+    );
+    return data;
+  },
+
+  listAuditLogs: async (
+    params: ListAuditLogsParams = {},
+  ): Promise<PaginatedResponse<AuditLogItem>> => {
+    const { data } = await apiClient.get<PaginatedResponse<AuditLogItem>>(
+      '/admins/audit-logs',
+      { params },
     );
     return data;
   },

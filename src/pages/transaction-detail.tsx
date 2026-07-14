@@ -13,7 +13,7 @@ import {
 } from '@/services/client-service';
 
 const movementLabel: Record<WalletTxType, string> = {
-  funding: 'Paystack → Wallet',
+  funding: 'Moolre → Wallet',
   withdrawal: 'Wallet → Bank',
   escrow_lock: 'Buyer → Escrow',
   escrow_release: 'Escrow → Seller',

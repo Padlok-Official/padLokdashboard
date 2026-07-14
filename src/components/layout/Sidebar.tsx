@@ -10,6 +10,7 @@ import {
   Wallet,
   AlertTriangle,
   Flag,
+  ShieldCheck,
   Bell,
   UserCog,
   LogOut,
@@ -32,6 +33,7 @@ const mainNavItems: NavItem[] = [
   { label: 'Wallet & Escrow', path: '/wallet-escrow', icon: Wallet },
   { label: 'Disputes', path: '/disputes', icon: AlertTriangle },
   { label: 'Flags & Reports', path: '/flags-reports', icon: Flag },
+  { label: 'KYC & Verification', path: '/kyc-verification', icon: ShieldCheck },
 ];
 
 const bottomNavItems: NavItem[] = [

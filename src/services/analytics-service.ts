@@ -281,7 +281,7 @@ export interface WalletLoadingPoint {
 
 /**
  * Cash flow: money in (completed deposits), money out (completed withdrawals),
- * the float we custody, and the ESTIMATED Paystack cost PadLok absorbs.
+ * the float we custody, and the ESTIMATED Moolre fees customers bear.
  * Backend sends decimals as strings; parsed to numbers here.
  */
 export interface CashFlowApi {
@@ -313,7 +313,7 @@ export interface CashFlow {
   outflowCount: number;
   netFlow: number;
   float: { available: number; escrowLocked: number; total: number };
-  /** Estimated Paystack fees flowing to the provider, and who bears them.
+  /** Estimated Moolre fees flowing to the provider, and who bears them.
    *  Customers bear all of it today, so it's informational — not our cost. */
   providerFees: {
     deposits: number;
@@ -361,7 +361,7 @@ export interface CashFlowPoint {
 
 /**
  * Transaction-fees breakdown for the BI Overview: PadLok's service fee (our
- * revenue) vs Paystack's API fees (estimated, customer-borne). Strings on the
+ * revenue) vs Moolre's provider fees (estimated, customer-borne). Strings on the
  * wire, parsed to numbers here.
  */
 export interface FeeItemApi {
@@ -370,7 +370,7 @@ export interface FeeItemApi {
   amount: string;
   rate_label: string;
   effective_pct: string;
-  kind: 'padlok' | 'paystack';
+  kind: 'padlok' | 'moolre';
   borne_by: string;
   is_estimate: boolean;
 }
@@ -379,7 +379,7 @@ export interface TransactionFeesApi {
   currency: string;
   total_fees: string;
   padlok: { total: string };
-  paystack: {
+  moolre: {
     deposits: string;
     withdrawals: string;
     total: string;
@@ -396,7 +396,7 @@ export interface FeeItem {
   amount: number;
   rateLabel: string;
   effectivePct: number;
-  kind: 'padlok' | 'paystack';
+  kind: 'padlok' | 'moolre';
   borneBy: string;
   isEstimate: boolean;
 }
@@ -405,7 +405,7 @@ export interface TransactionFees {
   currency: string;
   totalFees: number;
   padlok: { total: number };
-  paystack: {
+  moolre: {
     deposits: number;
     withdrawals: number;
     total: number;
@@ -732,12 +732,12 @@ const analyticsService = {
         padlok: {
           total: Number(d.padlok.total) || 0,
         },
-        paystack: {
-          deposits: Number(d.paystack.deposits) || 0,
-          withdrawals: Number(d.paystack.withdrawals) || 0,
-          total: Number(d.paystack.total) || 0,
-          isEstimate: d.paystack.is_estimate,
-          borneBy: d.paystack.borne_by,
+        moolre: {
+          deposits: Number(d.moolre.deposits) || 0,
+          withdrawals: Number(d.moolre.withdrawals) || 0,
+          total: Number(d.moolre.total) || 0,
+          isEstimate: d.moolre.is_estimate,
+          borneBy: d.moolre.borne_by,
         },
         items: d.items.map((i) => ({
           key: i.key,

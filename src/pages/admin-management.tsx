@@ -9,6 +9,9 @@ import {
   Search,
   Plus,
   AlertTriangle,
+  History,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -25,6 +28,7 @@ import {
 } from '@/hooks/useRoles';
 import {
   useAdmins,
+  useAuditLogs,
   useInvitations,
   useInviteAdmin,
   useResendInvitation,
@@ -32,7 +36,7 @@ import {
 } from '@/hooks/useAdmins';
 import type { Invitation } from '@/services/admin-service';
 
-type Tab = 'users' | 'roles' | 'invitations';
+type Tab = 'users' | 'roles' | 'invitations' | 'audit';
 
 const statusStyle: Record<string, string> = {
   active: 'text-brand-green',
@@ -46,6 +50,14 @@ const invitationStatusStyle: Record<Invitation['status'], string> = {
   accepted: 'bg-brand-green/10 text-brand-green',
   expired: 'bg-gray-100 text-gray-500',
   revoked: 'bg-gray-100 text-gray-500',
+};
+
+/** Badge color for an audit action, keyed on its category (first segment). */
+const auditCategoryStyle: Record<string, string> = {
+  auth: 'bg-blue-500/10 text-blue-600',
+  admin: 'bg-brand-green/10 text-brand-green',
+  role: 'bg-purple-500/10 text-purple-600',
+  notification: 'bg-[#F59E0B]/10 text-[#F59E0B]',
 };
 
 /** Deterministic avatar color based on the admin's id/initials. */
@@ -93,11 +105,18 @@ const AdminManagementPage: FC = () => {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showCreateRoleModal, setShowCreateRoleModal] = useState(false);
   const [editingRole, setEditingRole] = useState<RoleData | null>(null);
+  const [auditPage, setAuditPage] = useState(1);
+  const [auditSearch, setAuditSearch] = useState('');
 
   // Queries
   const rolesQuery = useRoles();
   const adminsQuery = useAdmins({ page: 1, limit: 20 });
   const invitationsQuery = useInvitations('pending');
+  const auditQuery = useAuditLogs({
+    page: auditPage,
+    limit: 20,
+    search: auditSearch.trim() || undefined,
+  });
 
   // Mutations
   const createRole = useCreateRole();
@@ -214,6 +233,7 @@ const AdminManagementPage: FC = () => {
     { key: 'users', label: 'Users', count: totalUsers, icon: Users },
     { key: 'roles', label: 'Roles', count: rolesQuery.data?.length ?? 0, icon: UserCheck },
     { key: 'invitations', label: 'Invitations', count: pendingInvites, icon: Mail },
+    { key: 'audit', label: 'Audit Log', count: auditQuery.data?.pagination.total ?? 0, icon: History },
   ];
 
   return (
@@ -561,6 +581,162 @@ const AdminManagementPage: FC = () => {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+      {/* ---- AUDIT LOG TAB ---- */}
+      {activeTab === 'audit' && (
+        <div className="rounded-2xl border border-gray-200 bg-white">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-6 py-4">
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={auditSearch}
+                onChange={(e) => {
+                  setAuditSearch(e.target.value);
+                  setAuditPage(1);
+                }}
+                placeholder="Search by action, name or email..."
+                className="w-72 rounded-lg border border-gray-200 py-2 pl-8 pr-3 text-sm outline-none focus:border-brand-green"
+              />
+            </div>
+          </div>
+
+          {auditQuery.isLoading ? (
+            <div className="flex justify-center py-16">
+              <Spinner size="md" />
+            </div>
+          ) : auditQuery.error ? (
+            <ErrorState onRetry={() => auditQuery.refetch()} />
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-100">
+                      {['Administrator', 'Action', 'Target', 'Details', 'IP Address', 'When'].map((h) => (
+                        <th key={h} className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {auditQuery.data?.items.map((log) => {
+                      const category = log.action.split('.')[0];
+                      const detailEntries = Object.entries(log.details).slice(0, 2);
+                      return (
+                        <tr key={log.id} className="border-b border-gray-50 last:border-b-0">
+                          <td className="px-6 py-4">
+                            {log.admin ? (
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className={cn(
+                                    'flex h-9 w-9 items-center justify-center rounded-full text-xs font-semibold text-white',
+                                    avatarColorFor(log.admin.id),
+                                  )}
+                                >
+                                  {initialsFor(log.admin.name)}
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium text-gray-900">{log.admin.name}</p>
+                                  <p className="text-xs text-gray-400">{log.admin.email}</p>
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-sm text-gray-400">System</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={cn(
+                                'whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium',
+                                auditCategoryStyle[category] ?? 'bg-gray-100 text-gray-500',
+                              )}
+                            >
+                              {friendly(log.action.split('.').slice(1).join(' ') || log.action)}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-700">
+                            {log.entityType ? (
+                              <div>
+                                <p className="capitalize">{log.entityType}</p>
+                                {log.entityId && (
+                                  <p className="text-xs text-gray-400">#{log.entityId.slice(0, 8)}</p>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-gray-400">—</span>
+                            )}
+                          </td>
+                          <td className="max-w-[220px] px-6 py-4 text-sm text-gray-500">
+                            {detailEntries.length > 0 ? (
+                              <div className="space-y-0.5">
+                                {detailEntries.map(([k, v]) => (
+                                  <p key={k} className="truncate text-xs" title={`${k}: ${String(v)}`}>
+                                    <span className="font-medium text-gray-600">{friendly(k)}:</span>{' '}
+                                    {typeof v === 'object' ? JSON.stringify(v) : String(v)}
+                                  </p>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-gray-400">—</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-500">
+                            {log.ipAddress ?? '—'}
+                          </td>
+                          <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+                            <p>{formatRelative(log.createdAt)}</p>
+                            <p className="text-xs text-gray-400">
+                              {new Date(log.createdAt).toLocaleString()}
+                            </p>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {auditQuery.data?.items.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-12 text-center text-sm text-gray-400">
+                          {auditSearch
+                            ? 'No audit entries match your search.'
+                            : 'No admin activity recorded yet.'}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {(auditQuery.data?.pagination.totalPages ?? 0) > 1 && (
+                <div className="flex items-center justify-between border-t border-gray-100 px-6 py-4">
+                  <p className="text-sm text-gray-500">
+                    Page {auditQuery.data?.pagination.page} of{' '}
+                    {auditQuery.data?.pagination.totalPages}
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setAuditPage((p) => Math.max(1, p - 1))}
+                      disabled={auditPage <= 1}
+                      className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      <ChevronLeft size={14} />
+                      Previous
+                    </button>
+                    <button
+                      onClick={() => setAuditPage((p) => p + 1)}
+                      disabled={auditPage >= (auditQuery.data?.pagination.totalPages ?? 1)}
+                      className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Next
+                      <ChevronRight size={14} />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>

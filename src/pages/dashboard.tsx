@@ -364,7 +364,7 @@ const DashboardPage: FC = () => {
         </div>
       </div>
 
-      {/* Transaction Fees Breakdown — PadLok service fee vs Paystack API fees */}
+      {/* Transaction Fees Breakdown — PadLok service fee vs Moolre provider fees */}
       <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-6">
         <div className="mb-1 flex items-center justify-between">
           <h3 className="text-lg font-bold text-gray-900">Transaction Fees Breakdown</h3>
@@ -373,7 +373,7 @@ const DashboardPage: FC = () => {
           </span>
         </div>
         <p className="mb-4 text-sm text-gray-500">
-          Every fee on completed transactions — what PadLok earns vs what Paystack charges
+          Every fee on completed transactions — what PadLok earns vs what Moolre charges
           (customer-borne, estimated).
         </p>
 
@@ -428,9 +428,9 @@ const DashboardPage: FC = () => {
               </span>
             </div>
             <div className="flex items-center justify-between rounded-lg bg-amber-50 px-3 py-2">
-              <span className="font-medium text-amber-700">Customers pay Paystack</span>
+              <span className="font-medium text-amber-700">Customers pay Moolre</span>
               <span className="font-semibold tabular-nums text-gray-900">
-                {formatCurrencyFull(txFees.paystack.total, txFees.currency)}
+                {formatCurrencyFull(txFees.moolre.total, txFees.currency)}
               </span>
             </div>
           </div>

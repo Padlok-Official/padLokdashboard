@@ -378,7 +378,7 @@ export const useTakeRate = (
 };
 
 /**
- * Transaction-fees breakdown (PadLok service fee vs Paystack API fees) for the
+ * Transaction-fees breakdown (PadLok service fee vs Moolre provider fees) for the
  * BI Overview. Totals move slowly — 30s refresh.
  */
 export const useTransactionFees = (
