@@ -12,6 +12,8 @@ import IntegrationInsightsPage from '@/pages/integration-insights';
 import RevenueAnalyticsPage from '@/pages/revenue-analytics';
 import WalletEscrowPage from '@/pages/wallet-escrow';
 import TransactionDetailPage from '@/pages/transaction-detail';
+import UsersPage from '@/pages/users';
+import UserDetailPage from '@/pages/user-detail';
 import DisputesPage from '@/pages/disputes';
 import EvidencePanelPage from '@/pages/evidence-panel';
 import FlagsReportsPage from '@/pages/flags-reports';
@@ -78,6 +80,8 @@ export const router = createBrowserRouter([
       { path: 'revenue-analytics', element: <RevenueAnalyticsPage /> },
       { path: 'wallet-escrow', element: <WalletEscrowPage /> },
       { path: 'wallet-escrow/:transactionId', element: <TransactionDetailPage /> },
+      { path: 'users', element: <UsersPage /> },
+      { path: 'users/:userId', element: <UserDetailPage /> },
       { path: 'disputes', element: <DisputesPage /> },
       { path: 'disputes/:disputeId', element: <EvidencePanelPage /> },
       { path: 'flags-reports', element: <FlagsReportsPage /> },
