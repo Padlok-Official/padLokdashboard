@@ -49,8 +49,15 @@ const LoginPage: FC = () => {
         return;
       }
 
-      // DEV fallback: dummy login when backend is unreachable.
-      if (formData.email === 'admin@padlok.com' && formData.password === 'admin123') {
+      // DEV-ONLY fallback when the backend is unreachable. Gated behind
+      // import.meta.env.DEV so Vite dead-code-eliminates it from production
+      // builds — never ship a hardcoded credential bypass, and never advertise
+      // the credentials in a user-facing toast.
+      if (
+        import.meta.env.DEV &&
+        formData.email === 'admin@padlok.com' &&
+        formData.password === 'admin123'
+      ) {
         setAuth('dev-token-123', {
           id: '1',
           name: 'Moni Roy',
@@ -60,9 +67,9 @@ const LoginPage: FC = () => {
         });
         toast.success('Welcome back! (dev mode — API unreachable)');
         navigate('/');
-      } else {
-        toast.error('Unable to reach API. Dev fallback: admin@padlok.com / admin123');
+        return;
       }
+
       toast.error('Backend unreachable. Check the admin API is running.');
     }
   };

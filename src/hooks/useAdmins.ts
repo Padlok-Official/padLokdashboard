@@ -7,11 +7,13 @@ import adminService from '@/services/admin-service';
 import type {
   AdminListItem,
   AdminStatus,
+  AuditLogItem,
   Invitation,
   InvitationStatus,
   InvitePayload,
   InviteResult,
   ListAdminsParams,
+  ListAuditLogsParams,
 } from '@/services/admin-service';
 import type { PaginatedResponse } from '@/types/api';
 
@@ -44,6 +46,16 @@ export const useInvitations = (
     queryFn: async () => {
       const res = await adminService.listInvitations({ status, page, limit });
       if (!res.success) throw new Error(res.message ?? 'Failed to load invitations');
+      return { items: res.data, pagination: res.pagination };
+    },
+  });
+
+export const useAuditLogs = (params: ListAuditLogsParams = {}) =>
+  useQuery<PaginatedResult<AuditLogItem>>({
+    queryKey: ['admins', 'audit-logs', params] as const,
+    queryFn: async () => {
+      const res = await adminService.listAuditLogs(params);
+      if (!res.success) throw new Error(res.message ?? 'Failed to load audit log');
       return { items: res.data, pagination: res.pagination };
     },
   });
