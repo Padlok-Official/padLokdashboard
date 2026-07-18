@@ -52,6 +52,26 @@ export interface BroadcastResult {
   delivery_error?: string;
 }
 
+export interface NotifyUserInput {
+  userId: string;
+  type?: NotificationType;
+  title: string;
+  body: string;
+  channels: { push?: boolean; email?: boolean };
+  /** Also write an in-app notification row for this user. Defaults to true. */
+  saveInApp?: boolean;
+}
+
+export interface NotifyUserResult {
+  in_app: { recipients: number } | null;
+  delivery: {
+    push?: { success: boolean; messageId?: string };
+    email?: { recipients: number; sent: number; failed: number };
+  } | null;
+  /** Present when push/email delivery failed (the in-app row may still be saved). */
+  delivery_error?: string;
+}
+
 const notificationService = {
   getStats: async (): Promise<ApiResponse<NotificationStats>> => {
     const { data } = await apiClient.get<ApiResponse<NotificationStats>>('/notifications/stats');
@@ -72,6 +92,14 @@ const notificationService = {
   broadcast: async (input: BroadcastInput): Promise<ApiResponse<BroadcastResult>> => {
     const { data } = await apiClient.post<ApiResponse<BroadcastResult>>(
       '/notifications/broadcast',
+      input,
+    );
+    return data;
+  },
+
+  sendToUser: async (input: NotifyUserInput): Promise<ApiResponse<NotifyUserResult>> => {
+    const { data } = await apiClient.post<ApiResponse<NotifyUserResult>>(
+      '/notifications/send-to-user',
       input,
     );
     return data;

@@ -15,6 +15,7 @@ import {
   Megaphone,
   Loader2,
   Users,
+  User as UserIcon,
   X,
   Sparkles,
   Clock,
@@ -33,6 +34,8 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import notificationService from '@/services/notification-service';
 import type { NotificationType, NotificationRow } from '@/services/notification-service';
+import type { UserRow } from '@/services/user-service';
+import UserPicker from '@/components/shared/UserPicker';
 
 const TYPES: { label: string; value: NotificationType }[] = [
   { label: 'Warning', value: 'warning' },
@@ -124,6 +127,8 @@ const NotificationsPage: FC = () => {
   const queryClient = useQueryClient();
 
   const [selectedType, setSelectedType] = useState<NotificationType>('announcement');
+  const [audience, setAudience] = useState<'all' | 'user'>('all');
+  const [targetUser, setTargetUser] = useState<UserRow | null>(null);
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [push, setPush] = useState(true);
@@ -145,15 +150,27 @@ const NotificationsPage: FC = () => {
   const stats = statsRes?.data;
   const recent = listRes?.data ?? [];
 
-  const broadcastMutation = useMutation({
-    mutationFn: () =>
-      notificationService.broadcast({
+  const sendMutation = useMutation({
+    mutationFn: () => {
+      if (audience === 'user') {
+        if (!targetUser) throw new Error('Select a user first');
+        return notificationService.sendToUser({
+          userId: targetUser.id,
+          type: selectedType,
+          title: subject.trim(),
+          body: message.trim(),
+          channels: { push, email },
+          saveInApp,
+        });
+      }
+      return notificationService.broadcast({
         type: selectedType,
         title: subject.trim(),
         body: message.trim(),
         channels: { push, email },
         saveInApp,
-      }),
+      });
+    },
     onSuccess: (res) => {
       const data = res.data;
       if (data?.delivery_error) {
@@ -161,23 +178,31 @@ const NotificationsPage: FC = () => {
       } else {
         const parts: string[] = [];
         if (data?.in_app) parts.push(`${data.in_app.recipients} in-app`);
-        if (data?.delivery?.email) parts.push(`${data.delivery.email.sent} emails`);
+        if (data?.delivery?.email) parts.push('email sent');
         if (data?.delivery?.push?.success) parts.push('push sent');
-        toast.success(`Broadcast sent${parts.length ? ` — ${parts.join(', ')}` : ''}`);
+        const summary = parts.length ? ` — ${parts.join(', ')}` : '';
+        toast.success(
+          audience === 'user' ? `Notification sent to ${targetUser?.name}${summary}` : `Broadcast sent${summary}`,
+        );
       }
       setSubject('');
       setMessage('');
       setShowConfirm(false);
+      setTargetUser(null);
       queryClient.invalidateQueries({ queryKey: ['notification-stats'] });
       queryClient.invalidateQueries({ queryKey: ['notifications', 'recent'] });
     },
     onError: (err: any) => {
       setShowConfirm(false);
-      toast.error(err.response?.data?.message || 'Failed to send broadcast');
+      toast.error(err.response?.data?.message || 'Failed to send notification');
     },
   });
 
-  const canSend = subject.trim().length > 0 && message.trim().length > 0 && (push || email);
+  const canSend =
+    subject.trim().length > 0 &&
+    message.trim().length > 0 &&
+    (push || email) &&
+    (audience === 'all' || !!targetUser);
 
   const applyTemplate = (tpl: Template) => {
     setSelectedType(tpl.type);
@@ -227,9 +252,11 @@ const NotificationsPage: FC = () => {
         <div className="space-y-6 lg:col-span-2">
           {/* Compose Broadcast */}
           <div className="rounded-2xl border border-gray-200 bg-white p-6">
-            <h2 className="mb-1 text-base font-bold text-gray-900">Compose Broadcast</h2>
+            <h2 className="mb-1 text-base font-bold text-gray-900">Compose Notification</h2>
             <p className="mb-4 text-xs text-gray-500">
-              Sends to every PadLok user over the selected channels.
+              {audience === 'user'
+                ? 'Sends to the selected user only.'
+                : 'Sends to every PadLok user over the selected channels.'}
             </p>
 
             {/* Notification Type */}
@@ -253,11 +280,41 @@ const NotificationsPage: FC = () => {
 
             {/* Audience */}
             <p className="mb-2 text-sm text-gray-600">Audience</p>
-            <div className="mb-5 flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5">
-              <Users size={16} className="text-brand-green" />
-              <span className="text-sm font-medium text-gray-900">All Users</span>
-              <span className="ml-auto text-xs text-gray-400">Broadcast</span>
+            <div className="mb-3 flex gap-3">
+              <button
+                onClick={() => {
+                  setAudience('all');
+                  setTargetUser(null);
+                }}
+                className={cn(
+                  'flex flex-1 items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors',
+                  audience === 'all'
+                    ? 'border-brand-green bg-brand-green/5 text-brand-green'
+                    : 'border-gray-200 text-gray-700 hover:bg-gray-50',
+                )}
+              >
+                <Users size={16} />
+                All Users
+              </button>
+              <button
+                onClick={() => setAudience('user')}
+                className={cn(
+                  'flex flex-1 items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors',
+                  audience === 'user'
+                    ? 'border-brand-green bg-brand-green/5 text-brand-green'
+                    : 'border-gray-200 text-gray-700 hover:bg-gray-50',
+                )}
+              >
+                <UserIcon size={16} />
+                Specific User
+              </button>
             </div>
+
+            {audience === 'user' && (
+              <div className="mb-5">
+                <UserPicker value={targetUser} onChange={setTargetUser} />
+              </div>
+            )}
 
             {/* Subject */}
             <p className="mb-2 text-sm text-gray-600">Subject</p>
@@ -419,11 +476,21 @@ const NotificationsPage: FC = () => {
 
             <button
               onClick={() => setShowConfirm(true)}
-              disabled={!canSend || broadcastMutation.isPending}
+              disabled={!canSend || sendMutation.isPending}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-brand-blue px-6 py-2.5 text-sm font-medium text-white disabled:opacity-50"
             >
-              {broadcastMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Megaphone size={16} />}
-              {broadcastMutation.isPending ? 'Broadcasting...' : 'Broadcast to All Users'}
+              {sendMutation.isPending ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : audience === 'user' ? (
+                <Send size={16} />
+              ) : (
+                <Megaphone size={16} />
+              )}
+              {sendMutation.isPending
+                ? 'Sending...'
+                : audience === 'user'
+                  ? 'Send to User'
+                  : 'Broadcast to All Users'}
             </button>
           </div>
 
@@ -516,14 +583,19 @@ const NotificationsPage: FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
             <div className="mb-4 flex items-start justify-between">
-              <h3 className="text-lg font-bold text-gray-900">Confirm Broadcast</h3>
+              <h3 className="text-lg font-bold text-gray-900">
+                {audience === 'user' ? 'Confirm Notification' : 'Confirm Broadcast'}
+              </h3>
               <button onClick={() => setShowConfirm(false)} className="text-gray-400 hover:text-gray-600">
                 <X size={20} />
               </button>
             </div>
             <p className="mb-4 text-sm text-gray-600">
               This will send <span className="font-semibold">"{subject}"</span> to{' '}
-              <span className="font-semibold">all users</span> via{' '}
+              <span className="font-semibold">
+                {audience === 'user' ? targetUser?.name ?? 'the selected user' : 'all users'}
+              </span>{' '}
+              via{' '}
               <span className="font-semibold">
                 {[push && 'Push', email && 'Email'].filter(Boolean).join(' + ')}
               </span>
@@ -537,12 +609,16 @@ const NotificationsPage: FC = () => {
                 Cancel
               </button>
               <button
-                onClick={() => broadcastMutation.mutate()}
-                disabled={broadcastMutation.isPending}
+                onClick={() => sendMutation.mutate()}
+                disabled={sendMutation.isPending}
                 className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-brand-blue py-2.5 text-sm font-medium text-white disabled:opacity-50"
               >
-                {broadcastMutation.isPending && <Loader2 size={16} className="animate-spin" />}
-                {broadcastMutation.isPending ? 'Sending...' : 'Send Broadcast'}
+                {sendMutation.isPending && <Loader2 size={16} className="animate-spin" />}
+                {sendMutation.isPending
+                  ? 'Sending...'
+                  : audience === 'user'
+                    ? 'Send Notification'
+                    : 'Send Broadcast'}
               </button>
             </div>
           </div>

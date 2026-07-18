@@ -213,10 +213,12 @@ Requires `send_notifications` for sending, `send_notifications` OR `view_message
 |---|---|---|
 | GET | `/notifications/stats` | `{ total_today, pending, failed, delivery_rate_pct, by_channel[] }`. |
 | GET | `/notifications` | List. Query: `type`, `userId`, `unread_only`, `page`, `limit`. |
-| POST | `/notifications/send` | `{ type, title, body, userId? \| userIds[]? \| broadcast:true, channels?, data? }`. |
+| POST | `/notifications/send` | In-app row only (no push/email). `{ type, title, body, userId? \| userIds[]? \| broadcast:true, channels?, data? }`. |
+| POST | `/notifications/broadcast` | Real push (Firebase) + email (Brevo) to **all users**, proxied to padlokbackend. `{ type?, title, body, channels: { push?, email? }, saveInApp?, navigation? }`. |
+| POST | `/notifications/send-to-user` | Real push + email to **one user**, same proxy mechanism as `/broadcast` but scoped to `userId`. `{ userId, type?, title, body, channels: { push?, email? }, saveInApp?, navigation? }`. |
 | POST | `/notifications/:id/read` | Mark one notification read. |
 
-> **Channel routing**: this endpoint writes rows to the shared `notifications` table (in-app inbox). Real push/SMS/email fan-out is not yet wired — the `channels` object is stored under `data.channels` so a worker can pick up the row. Dashboard copy should read "Sent to inbox" until delivery workers ship.
+> **Channel routing**: `/send` only writes rows to the shared `notifications` table (in-app inbox) — the `channels` object is stored under `data.channels` for stats purposes only, no delivery happens. `/broadcast` and `/send-to-user` are the endpoints that actually deliver push/email: padlok-api writes the in-app row itself, then proxies the push/email request to padlokbackend (`USER_BACKEND_URL`, `X-Internal-Secret: INTERNAL_API_SECRET`) since only that service holds Firebase config and device tokens. **`/send-to-user` requires a corresponding `POST /api/v1/admin/notify-user` endpoint on padlokbackend** (mirroring its existing `/api/v1/admin/broadcast`) that resolves the target user's push token/email and delivers — check that it exists before relying on real delivery in production.
 
 ---
 
@@ -234,7 +236,7 @@ Requires `send_notifications` for sending, `send_notifications` OR `view_message
 | `integration-insights.tsx` | `GET /analytics/transaction-insights`, `GET /analytics/revenue-trend?months=6` | 404/5xx |
 | `payment-behavior.tsx` | `GET /analytics/payment-behavior`, `GET /analytics/wallet-balance-trend?days=7` | 404/5xx |
 | `revenue-analytics.tsx` | `GET /analytics/revenue-efficiency`, `GET /analytics/revenue-trend?months=6` | 404/5xx |
-| `notifications.tsx` | `GET /notifications/stats`, `GET /notifications?page=1&limit=5`, `POST /notifications/send` | 404/5xx |
+| `notifications.tsx` | `GET /notifications/stats`, `GET /notifications?page=1&limit=5`, `POST /notifications/broadcast`, `POST /notifications/send-to-user` | 404/5xx |
 | `role-permissions.tsx` | `GET /roles`, `GET /permissions`, `PATCH /roles/:id` | 403 → read-only matrix |
 | `admin-management.tsx` | `GET /admins`, `GET /roles`, `GET /admins/invitations?status=pending`, `POST /admins/invite`, etc. | — |
 
@@ -246,6 +248,7 @@ Requires `send_notifications` for sending, `send_notifications` OR `view_message
 - **Wallet balance snapshots job** — gives exact EOD balances for the payment-behavior chart instead of the derive-from-activity approach.
 - **Risk heuristic worker** — populates `risk_alerts`. Suggested triggers: >3 disputes in 30 days, wallet withdraw > X × avg, KYC mismatch.
 - **Notification delivery worker** — consumes `notifications.data.channels` and fans out to push/SMS/email providers. Writes `data.delivery_status = 'delivered'|'failed'` so `/notifications/stats` becomes accurate.
+- **`POST /api/v1/admin/notify-user` on padlokbackend** — padlok-api's `/notifications/send-to-user` proxies here (mirroring the existing `/api/v1/admin/broadcast`), but padlokbackend needs to implement it: resolve the target user's push token/email and deliver via Firebase/Brevo.
 - **Audit action dictionary** — the `audit_log.action` values vary; expose a `/users/:id/activity-summary` that groups by action + shows last timestamps once product defines the important ones.
 - **Rate-limit reset exposure** — client handles 429 today by reading `RateLimit-Reset` from headers; if we keep stacking limiters, consider surfacing both windows in the response body.
 
