@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import disputeService from '@/services/dispute-service';
 import { escrowService } from '@/services/client-service';
+import DisputeChatPanel from '@/components/dispute-chat/DisputeChatPanel';
 
 
 const escrowStatusStyle: Record<string, string> = {
@@ -697,6 +698,14 @@ const EvidencePanelPage: FC = () => {
               <p className="text-sm text-gray-500">No timeline events available.</p>
             )}
           </div>
+
+          {/* Dispute Chat */}
+          <DisputeChatPanel
+            disputeId={disputeId!}
+            disputeStatus={dispute.status}
+            buyerName={buyerContact.name}
+            sellerName={sellerContact.name}
+          />
         </div>
 
         {/* Right Column */}
